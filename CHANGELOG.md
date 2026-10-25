@@ -6,6 +6,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **🧪 Model comparison page** (tab "ทดสอบโมเดล"): pick up to 8 Ollama models and run the
+  same proofreading job on each, one node per model. Built-in Thai test set with an answer key
+  (names, tone marks, ร/ล, homophones, plus slang that must not be "fixed") gives each model a
+  score, fixed/over-edit counts, time, tokens/s, model load time and a "thinking" flag; or use
+  the subtitles of a real job to compare suggestions side by side. Past runs are kept in a history list.
 - Live **node progress** for every task: each step (extract audio, Whisper, segmenting,
   Ollama, .ass, iGPU check, render, save) shows its state, device (CPU / iGPU / Ollama),
   detail, per-step progress and a live elapsed timer; render fallback from iGPU to CPU is
@@ -14,6 +19,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `CLAUDE.md` with project context and rules for AI-assisted development.
 
 ### Changed
+- `proofreader.ask()` returns Ollama timing stats; `proofread()` builds on it.
 - Job API returns `task.steps` and the server time (`now`) so the phone can show accurate timers.
 
 ## [0.1.0] - 2026-10-25

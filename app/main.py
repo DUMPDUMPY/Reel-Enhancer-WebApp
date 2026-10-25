@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from app import config, jobs, pipeline
+from app import bench, config, jobs, pipeline
 from app.services import media, proofreader, renderer, subtitles, transcriber
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -96,6 +96,7 @@ def list_jobs() -> list[dict]:
         {"id": j["id"], "filename": j.get("filename"), "created": j.get("created"),
          "has_output": bool(j.get("output")), "cues": len(j.get("cues") or [])}
         for j in jobs.list_recent()
+        if j.get("kind") != "bench"
     ]
 
 
@@ -286,6 +287,61 @@ def render_log(job_id: str) -> PlainTextResponse:
     _job_or_404(job_id)
     p = jobs.job_dir(job_id) / "render.log"
     return PlainTextResponse(p.read_text(errors="replace")[-20000:] if p.is_file() else "")
+
+
+# ---------- model comparison ----------
+
+@app.get("/api/bench/testset")
+def bench_testset() -> dict:
+    return {"context": bench.BUILTIN_CONTEXT, "items": bench.builtin_items()}
+
+
+@app.get("/api/bench")
+def bench_runs() -> list[dict]:
+    out = []
+    for j in jobs.list_recent(50):
+        if j.get("kind") != "bench":
+            continue
+        out.append({
+            "id": j["id"], "created": j.get("created"), "models": j.get("models"),
+            "source_name": j.get("source_name"), "state": (j.get("task") or {}).get("state"),
+        })
+    return out[:20]
+
+
+class BenchRequest(BaseModel):
+    models: list[str] = Field(min_length=1, max_length=8)
+    source: str = "builtin"  # "builtin" or a job id whose cues should be used
+    context: str | None = None
+
+
+@app.post("/api/bench")
+def start_bench(req: BenchRequest) -> dict:
+    if not config.OLLAMA_HOST:
+        raise HTTPException(400, "ยังไม่ได้ตั้ง OLLAMA_HOST")
+    models = list(dict.fromkeys(m.strip() for m in req.models if m.strip()))
+    if not models:
+        raise HTTPException(400, "เลือกโมเดลอย่างน้อย 1 ตัว")
+    if req.source == "builtin":
+        items, name = bench.builtin_items(), "ชุดทดสอบมาตรฐาน"
+        context = bench.BUILTIN_CONTEXT if req.context is None else req.context
+    else:
+        src = _job_or_404(req.source)
+        cues = [c for c in src.get("cues") or [] if c.get("text", "").strip()]
+        if not cues:
+            raise HTTPException(400, "งานนี้ยังไม่มีซับ")
+        items = [{"id": i + 1, "text": "".join(x.strip() for x in c["text"].split("\n"))} for i, c in enumerate(cues)]
+        name = f"ซับจาก {src.get('filename') or src['id']}"
+        context = src.get("hint", "") if req.context is None else req.context
+    job_id = jobs.new_id()
+    jobs.save({
+        "id": job_id, "kind": "bench", "created": time.time(), "models": models,
+        "source": req.source, "source_name": name, "context": context.strip(),
+        "items": items, "results": {},
+        "task": {"name": None, "state": "idle", "progress": 0, "message": "", "error": ""},
+    })
+    jobs.submit(job_id, "bench", bench.nodes_for(models), bench.bench_task)
+    return jobs.load(job_id)
 
 
 app.mount("/", StaticFiles(directory=config.APP_DIR / "static", html=True), name="static")

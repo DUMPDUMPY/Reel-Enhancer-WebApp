@@ -59,6 +59,15 @@ def update(job_id: str, **fields: Any) -> dict:
         return save(job)
 
 
+@contextmanager
+def edit(job_id: str):
+    """with edit(job_id) as job: job[...] = ...  (load, modify, save under the lock)"""
+    with _lock:
+        job = load(job_id)
+        yield job
+        save(job)
+
+
 def set_task(job_id: str, name: str | None, state: str, progress: float = 0.0, message: str = "", error: str = "") -> None:
     with _lock:
         job = load(job_id)

@@ -27,6 +27,9 @@ FFmpeg enhance + burn subtitles at 1080×1920 → download. User-facing text is 
 - `app/services/` — `transcriber` (whisper HTTP), `segmenter` (whisper JSON → cues),
   `thai_text` (width + wrapping), `proofreader` (Ollama), `subtitles` (.ass/.vtt),
   `renderer` (FFmpeg commands, iGPU capability probe, fallbacks), `media` (ffprobe).
+- `app/bench.py` — Ollama model comparison. Runs are stored as jobs with `kind: "bench"`
+  (excluded from `/api/jobs`), one node per model; built-in test set has an answer key.
+  If you change the proofreading prompt or validation, re-check scores here.
 - `app/static/` — vanilla HTML/CSS/JS, no build step, no CDN (must work offline on the LAN).
 
 ## Rules that are easy to break

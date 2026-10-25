@@ -11,9 +11,13 @@
 <header class="top">
   <h1>🎬 Reel Enhancer</h1>
   <div class="chips" id="chips"></div>
+  <nav class="tabs">
+    <button class="tab on" data-view="edit">🎬 ทำคลิป</button>
+    <button class="tab" data-view="bench">🧪 ทดสอบโมเดล</button>
+  </nav>
 </header>
 
-<main>
+<main id="view-edit">
   <!-- Step 1: upload -->
   <section class="card" id="step-upload">
     <h2><span class="num">1</span> อัปโหลดคลิป</h2>
@@ -130,6 +134,38 @@
       <p class="meta" id="result-meta"></p>
     </div>
     <details class="log hidden" id="log-box"><summary>ดู log FFmpeg</summary><pre id="log"></pre></details>
+  </section>
+</main>
+
+<main id="view-bench" class="hidden">
+  <section class="card">
+    <h2>🧪 เปรียบเทียบโมเดล Ollama</h2>
+    <p class="note">ส่งข้อความชุดเดียวกันให้แต่ละโมเดลตรวจคำผิดทีละตัว แล้วเทียบคะแนน เวลา และความเร็วบนเครื่องจริง
+      ชุดทดสอบมาตรฐานมีทั้งคำที่ต้องแก้ และภาษาพูดที่ห้ามแก้</p>
+    <div class="field"><span>เลือกโมเดล (ได้สูงสุด 8 ตัว)</span><div class="checks" id="bench-models"></div></div>
+    <label class="field"><span>ข้อความที่ใช้ทดสอบ</span><select id="bench-source"></select></label>
+    <label class="field"><span>บริบท / ชื่อเฉพาะ</span><input id="bench-context"></label>
+    <details class="testset"><summary>ดูชุดทดสอบมาตรฐาน</summary><ol id="bench-testset"></ol></details>
+    <button class="btn primary" id="btn-bench">เริ่มทดสอบ</button>
+    <div class="task hidden" id="task-bench">
+      <div class="task-head"><span class="msg"></span><span class="task-meta"><b class="pct"></b> · <span class="total-time"></span></span></div>
+      <div class="progress"><div></div></div>
+      <ol class="nodes"></ol>
+      <p class="task-error hidden"></p>
+    </div>
+  </section>
+
+  <section class="card hidden" id="bench-results">
+    <h2>📊 ผลการทดสอบ</h2>
+    <p class="note" id="bench-meta"></p>
+    <div class="table-wrap"><table class="bench-table" id="bench-summary"></table></div>
+    <h3>รายท่อน</h3>
+    <ol class="bench-cues" id="bench-cues"></ol>
+  </section>
+
+  <section class="card">
+    <h2>🕘 ประวัติการทดสอบ</h2>
+    <ul class="history" id="bench-history"></ul>
   </section>
 </main>
 

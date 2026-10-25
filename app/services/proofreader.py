@@ -51,11 +51,8 @@ def status() -> dict:
         return {"ok": False, "status": f"เชื่อมต่อไม่ได้: {e}", "models": []}
 
 
-def proofread(cues: list[dict], context: str = "", model: str | None = None) -> list[dict]:
-    """Return suggestions [{id, before, after}] for cues whose spelling the model fixed."""
-    if not config.OLLAMA_HOST or not cues:
-        return []
-    items = [{"id": int(c["id"]), "text": _flat(c["text"])} for c in cues]
+def ask(items: list[dict], context: str = "", model: str | None = None) -> tuple[list, dict]:
+    """Send [{id, text}] to Ollama; return (answer items, timing stats)."""
     user = ""
     if context.strip():
         user += f"บริบท / ชื่อเฉพาะที่ต้องสะกดให้ถูก: {context.strip()}\n\n"
@@ -75,9 +72,34 @@ def proofread(cues: list[dict], context: str = "", model: str | None = None) -> 
         },
         timeout=config.OLLAMA_TIMEOUT,
     )
-    r.raise_for_status()
-    answer = json.loads(r.json()["message"]["content"])
-    return validate(items, answer.get("items", []))
+    if r.status_code >= 400:
+        raise RuntimeError(f"Ollama ตอบ {r.status_code}: {r.text[:300]}")
+    data = r.json()
+    ns = 1e9
+    eval_s = (data.get("eval_duration") or 0) / ns
+    stats = {
+        "total_s": round((data.get("total_duration") or 0) / ns, 2),
+        "load_s": round((data.get("load_duration") or 0) / ns, 2),
+        "prompt_s": round((data.get("prompt_eval_duration") or 0) / ns, 2),
+        "eval_s": round(eval_s, 2),
+        "eval_tokens": data.get("eval_count") or 0,
+        "tokens_per_s": round((data.get("eval_count") or 0) / eval_s, 1) if eval_s else 0,
+        "thinking": bool((data.get("message") or {}).get("thinking")),
+    }
+    try:
+        answer = json.loads(data["message"]["content"])
+    except (KeyError, TypeError, ValueError) as e:
+        raise ValueError(f"Ollama ตอบไม่เป็น JSON: {e}") from e
+    return (answer.get("items", []) if isinstance(answer, dict) else []), stats
+
+
+def proofread(cues: list[dict], context: str = "", model: str | None = None) -> list[dict]:
+    """Return suggestions [{id, before, after}] for cues whose spelling the model fixed."""
+    if not config.OLLAMA_HOST or not cues:
+        return []
+    items = [{"id": int(c["id"]), "text": _flat(c["text"])} for c in cues]
+    received, _stats = ask(items, context, model)
+    return validate(items, received)
 
 
 def validate(sent: list[dict], received: list) -> list[dict]:
