@@ -44,7 +44,12 @@
     <label class="switch"><input type="checkbox" id="proofread"><span>ให้ Ollama ช่วยตรวจคำผิด</span></label>
     <label class="field hidden" id="ollama-model-wrap"><span>โมเดล Ollama</span><select id="ollama-model"></select></label>
     <button class="btn primary" id="btn-transcribe">1. ถอดเสียงจับเวลา</button>
-    <div class="task hidden" id="task-transcribe"><div class="progress"><div></div></div><p class="msg"></p></div>
+    <div class="task hidden" id="task-transcribe">
+      <div class="task-head"><span class="msg"></span><span class="task-meta"><b class="pct"></b> · <span class="total-time"></span></span></div>
+      <div class="progress"><div></div></div>
+      <ol class="nodes"></ol>
+      <p class="task-error hidden"></p>
+    </div>
   </section>
 
   <!-- Step 3: edit -->
@@ -113,7 +118,12 @@
   <section class="card hidden" id="step-render">
     <h2><span class="num">4</span> สร้างคลิปชัดพิเศษ</h2>
     <button class="btn primary big" id="btn-render">2. Enhance &amp; ฝังซับ</button>
-    <div class="task hidden" id="task-render"><div class="progress"><div></div></div><p class="msg"></p></div>
+    <div class="task hidden" id="task-render">
+      <div class="task-head"><span class="msg"></span><span class="task-meta"><b class="pct"></b> · <span class="total-time"></span></span></div>
+      <div class="progress"><div></div></div>
+      <ol class="nodes"></ol>
+      <p class="task-error hidden"></p>
+    </div>
     <div class="result hidden" id="result">
       <video id="out-video" playsinline controls preload="metadata"></video>
       <a class="btn primary big" id="btn-download" download>⬇️ Download Master MP4</a>

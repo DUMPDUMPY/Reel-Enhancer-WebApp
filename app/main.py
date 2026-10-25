@@ -148,7 +148,8 @@ def create_job(file: UploadFile = File(...), hint: str = Form("")) -> dict:
 
 @app.get("/api/jobs/{job_id}")
 def get_job(job_id: str) -> dict:
-    return _job_or_404(job_id)
+    # "now" lets the phone show live elapsed times without trusting its own clock.
+    return {**_job_or_404(job_id), "now": time.time()}
 
 
 @app.delete("/api/jobs/{job_id}")
@@ -173,7 +174,7 @@ def transcribe(job_id: str, req: TranscribeRequest) -> dict:
     _ensure_idle(job)
     if req.hint is not None:
         jobs.update(job_id, hint=req.hint.strip())
-    jobs.submit(job_id, "transcribe", pipeline.transcribe_task, req.model, req.vad, req.proofread, req.ollama_model)
+    jobs.submit(job_id, "transcribe", pipeline.TRANSCRIBE_NODES, pipeline.transcribe_task, req.model, req.vad, req.proofread, req.ollama_model)
     return jobs.load(job_id)
 
 
@@ -232,7 +233,7 @@ def proofread(job_id: str, req: ProofreadRequest) -> dict:
     _ensure_idle(job)
     if not job.get("cues"):
         raise HTTPException(400, "ยังไม่มีซับให้ตรวจ")
-    jobs.submit(job_id, "proofread", pipeline.proofread_task, req.ollama_model)
+    jobs.submit(job_id, "proofread", pipeline.PROOFREAD_NODES, pipeline.proofread_task, req.ollama_model)
     return jobs.load(job_id)
 
 
@@ -240,7 +241,7 @@ def proofread(job_id: str, req: ProofreadRequest) -> dict:
 def render(job_id: str, req: CuesRequest) -> dict:
     _save_edits(job_id, req)
     jobs.update(job_id, output=None)
-    jobs.submit(job_id, "render", pipeline.render_task)
+    jobs.submit(job_id, "render", pipeline.RENDER_NODES, pipeline.render_task)
     return jobs.load(job_id)
 
 

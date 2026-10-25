@@ -263,16 +263,24 @@ def _run_ffmpeg(cmd: list[str], duration: float, log_path: Path, on_progress: Ca
 def render(
     src: Path, out: Path, ass_path: Path, job_dir: Path, info: dict, opts: RenderOptions,
     on_progress: Callable[[float], None] | None = None,
+    on_status: Callable[[str, str | None], None] | None = None,
 ) -> str:
-    """Render with the best available variant; returns the variant that worked."""
+    """Render with the best available variant; returns the variant that worked.
+
+    on_status(variant, failed_variant) is called before each attempt.
+    """
     caps = detect_caps()
     variants = ["gpu", "gpu-swdec", "cpu"] if caps.mode == "vaapi" else ["cpu"]
     fonts_dir = prepare_fonts_dir(job_dir, config.FONT_DIRS)
     log_path = job_dir / "render.log"
+    failed = None
     for v in variants:
+        if on_status:
+            on_status(v, failed)
         cmd = build_command(src, out, ass_path, fonts_dir, info, opts, v, caps)
         if _run_ffmpeg(cmd, info.get("duration") or 0, log_path, on_progress):
             return v
         log.warning("render variant %s failed, see %s", v, log_path)
+        failed = v
     tail = log_path.read_text(errors="replace")[-800:]
     raise RuntimeError(f"FFmpeg เรนเดอร์ไม่สำเร็จ:\n{tail}")

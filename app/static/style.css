@@ -75,8 +75,45 @@ input[type=color] { width: 40px; height: 34px; padding: 2px; }
 
 .progress { height: 8px; background: #12141a; border-radius: 99px; overflow: hidden; margin-top: 12px; }
 .progress > div { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width .3s; }
-.task .msg { margin: 6px 0 0; font-size: 14px; color: var(--muted); white-space: pre-wrap; }
-.task .msg.err { color: var(--bad); }
+/* pipeline nodes: one row per step, joined by a vertical line */
+.task { margin-top: 14px; }
+.task-head { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+.task-head .msg { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-meta { color: var(--muted); white-space: nowrap; }
+.task-error { color: var(--bad); font-size: 14px; white-space: pre-wrap; margin: 8px 0 0; }
+.nodes { list-style: none; padding: 0; margin: 14px 0 0; }
+.node { position: relative; display: flex; gap: 12px; padding-bottom: 14px; }
+.node:last-child { padding-bottom: 0; }
+.node::before {
+  content: ""; position: absolute; left: 13px; top: 28px; bottom: -2px; width: 2px; background: var(--line);
+}
+.node:last-child::before { display: none; }
+.node.done::before, .node.skipped::before, .node.warn::before { background: var(--ok); }
+.dot {
+  flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 14px; font-weight: 700; background: #12141a; border: 2px solid var(--line); color: var(--muted); z-index: 1;
+}
+.node.running .dot { border-color: var(--accent); border-top-color: transparent; animation: spin .9s linear infinite; }
+.node.done .dot { background: var(--ok); border-color: var(--ok); color: #0b1a12; }
+.node.skipped .dot { border-style: dashed; }
+.node.warn .dot { background: var(--accent2); border-color: var(--accent2); color: #1a1205; }
+.node.error .dot { background: var(--bad); border-color: var(--bad); color: #fff; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.node .body { flex: 1; min-width: 0; padding-top: 3px; }
+.node-top { display: flex; align-items: center; gap: 6px; font-size: 15px; }
+.node.pending .node-top, .node.skipped .node-top { color: var(--muted); }
+.node .label { flex: 1; min-width: 0; }
+.node .time { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.dev { font-size: 11px; padding: 0 6px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); }
+.dev.iGPU { color: #7cc7ff; border-color: rgba(124,199,255,.4); }
+.dev.Ollama { color: #c59bff; border-color: rgba(197,155,255,.4); }
+.node .detail { font-size: 13px; color: var(--muted); margin-top: 1px; overflow-wrap: anywhere; }
+.node.error .detail { color: var(--bad); }
+.node.warn .detail { color: var(--accent2); }
+.mini { height: 4px; background: #12141a; border-radius: 99px; overflow: hidden; margin-top: 6px; }
+.mini > div { height: 100%; background: var(--accent); transition: width .3s; }
+.mini.indeterminate > div { width: 35% !important; animation: slide 1.2s ease-in-out infinite; }
+@keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
 
 .clip-info { font-size: 13px; color: var(--muted); display: flex; gap: 10px; align-items: center; }
 .clip-info img { width: 54px; border-radius: 6px; }

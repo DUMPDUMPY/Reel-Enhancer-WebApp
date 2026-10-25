@@ -155,6 +155,7 @@ async function openJob(id) {
 // ---------- job state ----------
 
 function setJob(job, replaceCues) {
+  if (job.now) clockSkew = job.now - Date.now() / 1000;
   const firstLoad = !state.job || state.job.id !== job.id;
   state.job = job;
   if (firstLoad) history.replaceState(null, "", `#job=${job.id}`);
@@ -184,6 +185,18 @@ function setJob(job, replaceCues) {
 
 function taskBox(name) { return name === "render" ? $("#task-render") : $("#task-transcribe"); }
 
+const NODE_ICON = { pending: "", running: "", done: "✓", skipped: "–", warn: "!", error: "✕" };
+
+// Server clock minus phone clock, so elapsed times are right even if the phone's clock is off.
+let clockSkew = 0;
+const serverNow = () => Date.now() / 1000 + clockSkew;
+
+function fmtDur(sec) {
+  if (sec == null || sec < 0) return "";
+  if (sec < 60) return sec.toFixed(1) + " วิ";
+  return `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")} นาที`;
+}
+
 function renderTask() {
   const t = state.job.task || {};
   const running = t.state === "queued" || t.state === "running";
@@ -194,13 +207,51 @@ function renderTask() {
   if (!t.name || t.state === "idle") return;
   const box = taskBox(t.name);
   show(box, true);
-  box.querySelector(".progress > div").style.width = ((t.state === "done" ? 1 : t.progress) * 100) + "%";
-  const msg = box.querySelector(".msg");
-  msg.textContent = t.state === "error" ? "❌ " + (t.error || t.message) : t.message;
-  msg.classList.toggle("err", t.state === "error");
+
+  const pct = t.state === "done" ? 1 : t.progress || 0;
+  box.querySelector(".progress > div").style.width = pct * 100 + "%";
+  box.querySelector(".pct").textContent = Math.round(pct * 100) + "%";
+  box.querySelector(".msg").textContent =
+    t.state === "queued" ? "⏳ รอคิว" : t.state === "done" ? "✅ เสร็จแล้ว" : t.state === "error" ? "❌ ไม่สำเร็จ" : t.message;
+  const total = box.querySelector(".total-time");
+  total.dataset.s = t.started || "";
+  total.dataset.e = t.ended || "";
+
+  box.querySelector(".nodes").innerHTML = (t.steps || []).map((n) => {
+    const showBar = n.state === "running";
+    const indeterminate = showBar && !(n.progress > 0);
+    return `<li class="node ${n.state}">
+      <div class="dot">${NODE_ICON[n.state] || ""}</div>
+      <div class="body">
+        <div class="node-top">
+          <span class="label">${esc(n.label)}</span>
+          <span class="dev ${esc(n.device)}">${esc(n.device)}</span>
+          <span class="time" data-s="${n.started || ""}" data-e="${n.ended || ""}"></span>
+        </div>
+        ${n.detail ? `<div class="detail">${esc(n.detail)}</div>` : ""}
+        ${showBar ? `<div class="mini ${indeterminate ? "indeterminate" : ""}"><div style="width:${(n.progress || 0) * 100}%"></div></div>` : ""}
+      </div>
+    </li>`;
+  }).join("");
+
+  const err = box.querySelector(".task-error");
+  err.textContent = t.state === "error" ? t.error || t.message : "";
+  show(err, t.state === "error" && !!(t.error || t.message));
+  tickTimes();
   if (t.state === "error" && t.name === "render") loadLog();
   if (running) schedulePoll();
 }
+
+// Live elapsed time on every running node, without waiting for the next poll.
+function tickTimes() {
+  document.querySelectorAll(".task [data-s]").forEach((el) => {
+    const s = parseFloat(el.dataset.s);
+    if (!s) { el.textContent = ""; return; }
+    const e = parseFloat(el.dataset.e) || serverNow();
+    el.textContent = fmtDur(e - s);
+  });
+}
+setInterval(tickTimes, 250);
 
 function schedulePoll() {
   clearTimeout(state.pollTimer);
