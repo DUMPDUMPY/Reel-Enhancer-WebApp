@@ -7,7 +7,7 @@ import json
 import time
 
 from app import jobs
-from app.services import llm, media, proofreader, renderer, subtitles, transcriber
+from app.services import llm, media, proofreader, renderer, stt_cloud, subtitles, transcriber
 from app.services.segmenter import build_cues
 from app.services.thai_text import parse_hint_words
 
@@ -41,16 +41,25 @@ def transcribe_task(job_id: str, model: str | None, vad: bool, proofread: bool, 
     with jobs.step(job_id, "extract"):
         wav = media.extract_audio(d / job["source"], d / "audio.wav")
 
-    with jobs.step(job_id, "whisper", (model or transcriber.current_model()).removeprefix("ggml-").removesuffix(".bin")):
-        result = transcriber.transcribe(wav, hint=hint, model=model, vad=vad)
-        (d / "whisper.json").write_text(json.dumps(result, ensure_ascii=False))
+    if stt_cloud.is_cloud(model):
+        # Cloud STT: nothing runs on the NAS for this step.
+        used_model = model
+        jobs.step_update(job_id, "whisper", device="Cloud")
+        with jobs.step(job_id, "whisper", model):
+            result = stt_cloud.transcribe(wav, hint=hint, model=model)
+            (d / "whisper.json").write_text(json.dumps(result, ensure_ascii=False))
+    else:
+        with jobs.step(job_id, "whisper", (model or transcriber.current_model()).removeprefix("ggml-").removesuffix(".bin")):
+            result = transcriber.transcribe(wav, hint=hint, model=model, vad=vad)
+            (d / "whisper.json").write_text(json.dumps(result, ensure_ascii=False))
+        used_model = transcriber.current_model()
 
     with jobs.step(job_id, "segment"):
         cues = build_cues(result, parse_hint_words(hint))
         jobs.step_update(job_id, "segment", detail=f"{len(cues)} ท่อน")
     jobs.update(
         job_id, cues=cues, suggestions=[], proofread_error="",
-        transcribe_meta={"model": transcriber.current_model(), "seconds": round(time.time() - t0, 1), "vad": vad},
+        transcribe_meta={"model": used_model, "seconds": round(time.time() - t0, 1), "vad": vad},
     )
 
     if not proofread or not cues:

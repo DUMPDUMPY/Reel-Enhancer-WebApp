@@ -32,6 +32,13 @@ MODELS_DIR = Path(_env("MODELS_DIR", "/models"))
 WHISPER_DEFAULT_MODEL = _env("WHISPER_MODEL", "ggml-large-v3-q5_0.bin")
 WHISPER_TIMEOUT = _env_float("WHISPER_TIMEOUT", 600)
 
+# Cloud speech-to-text (optional): with a key, "elevenlabs:scribe_v2" shows up next to the Whisper models.
+ELEVENLABS_API_KEY = _env("ELEVENLABS_API_KEY", "")
+ELEVENLABS_BASE_URL = _env("ELEVENLABS_BASE_URL", "https://api.elevenlabs.io").rstrip("/")
+ELEVENLABS_STT_MODEL = _env("ELEVENLABS_STT_MODEL", "scribe_v2")
+# Send hint words as Scribe "keyterms" (better names, +20% cost).
+ELEVENLABS_KEYTERMS = _env("ELEVENLABS_KEYTERMS", "1") not in ("0", "false", "no", "")
+
 # Proofreading LLM (optional). Local Ollama, or a cloud API with a key (see services/llm.py:
 # ZAI_API_KEY, TYPHOON_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY, CUSTOM_LLM_*).
 # Empty OLLAMA_HOST disables Ollama.

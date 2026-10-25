@@ -6,6 +6,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Speech-to-text via ElevenLabs Scribe** (`ELEVENLABS_API_KEY`): `elevenlabs:scribe_v2` appears in
+  the model list; word timestamps are converted to the Whisper shape so segmenting, editing and
+  rendering are unchanged. Hint words are sent as `keyterms` (`ELEVENLABS_KEYTERMS=0` to disable).
 - **Proofreading via API key** so the NAS doesn't have to run an LLM: Z.AI GLM, Typhoon API,
   OpenRouter, Gemini or any OpenAI-compatible endpoint (`ZAI_API_KEY`, `TYPHOON_API_KEY`, ...).
   Models are referenced as `provider:model` (e.g. `zai:glm-4.7-flash`); plain names stay Ollama.

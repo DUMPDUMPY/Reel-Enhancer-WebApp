@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app import bench, config, jobs, pipeline
-from app.services import media, proofreader, renderer, subtitles, transcriber
+from app.services import media, proofreader, renderer, stt_cloud, subtitles, transcriber
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("app")
@@ -62,6 +62,7 @@ def system() -> dict:
     caps = renderer.detect_caps()
     return {
         "whisper": {**transcriber.health(), "models": transcriber.list_models(), "current": transcriber.current_model()},
+        "stt_cloud": {"ok": stt_cloud.enabled(), "models": stt_cloud.models()},
         "llm": proofreader.status(),
         "render": {"mode": caps.mode, "low_power": caps.low_power, "detail": caps.detail, "checked": caps.checked},
         "fonts": subtitles.list_fonts(),
