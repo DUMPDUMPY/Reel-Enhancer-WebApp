@@ -29,6 +29,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Z.AI now uses the GLM Coding Plan endpoint (`https://api.z.ai/api/coding/paas/v4`) by default;
   set `ZAI_BASE_URL=https://api.z.ai/api/paas/v4` for a pay-as-you-go key. GLM 5.3 models, which
   can't turn thinking off, are retried with `reasoning_effort` from `ZAI_REASONING_EFFORT` (default `max`).
+### Fixed
+- ElevenLabs transcripts no longer lose real lines such as "อย่าลืมกดติดตาม…": the Whisper
+  outro-hallucination filter is skipped for Scribe segments.
+
 - Ollama answers that drop or merge items are retried once (`proofreader.ask_validated`),
   in both proofreading and the comparison page; failed raw answers are kept in bench results.
 - The comparison page unloads each model right after testing it (`keep_alive: 0`), so several

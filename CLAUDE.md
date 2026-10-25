@@ -56,19 +56,25 @@ FFmpeg enhance + burn subtitles at 1080×1920 → download. User-facing text is 
 - `app/services/stt_cloud.py` — ElevenLabs Scribe STT (`ELEVENLABS_API_KEY`), output converted to
   whisper verbose_json so `segmenter` is shared. Picked when the model id starts with `elevenlabs:`.
 
-## Testing with real API keys (pending)
+## Testing with real API keys
 
 Keys are provided only as environment variables/secrets, never in chat: `ZAI_API_KEY`,
-`ELEVENLABS_API_KEY`. Not yet verified against the live APIs:
-1. Proofreading: run the app locally with `ZAI_API_KEY`, open the "ทดสอบโมเดล" tab and compare
-   `zai:glm-4.7-flash` / `zai:glm-4.5-flash` on the built-in test set (check thinking is off and
-   JSON comes back complete). Reference scores on the same set, CPU Ollama: sailor2:8b 62,
-   gemma3:4b 50, Typhoon 2.5 4B 50, Typhoon 2.1 4B 38, qwen2.5:3b 0 (wrong edits).
-2. Speech-to-text: there is no Thai test audio in the repo. Generate it with ElevenLabs TTS
-   (`POST /v1/text-to-speech/{voice_id}`, multilingual model) from the test-set sentences, then
-   transcribe with `elevenlabs:scribe_v2` and compare timing/text with whisper.cpp
-   (`ggml-large-v3-q5_0.bin` from Hugging Face; build whisper-server per `docker/whisper/Dockerfile`).
-3. Confirm Scribe's `language_code` "th" and `keyterms` are accepted for Thai.
+`ELEVENLABS_API_KEY`. Results so far (2026-10-25):
+- **ElevenLabs Scribe — verified.** Test audio: `eleven_v3` TTS of the bench sentences
+  (`eleven_multilingual_v2` rejects `language_code: th`). `language_code: "th"` and `keyterms` are
+  accepted (response `language_code: "tha"`). 12/14 sentences exact (the 2 misses are TTS saying
+  นะ/มาก for the slang), segment timing within ~0.1–0.16 s of the reference, ~3.5 s per 36 s clip.
+  whisper.cpp large-v3-q5_0 (CPU, VAD) on the same audio: 5/14 exact, name errors (กุ้งไก่, โมจิว),
+  without a hint its segments merge two sentences and cue timing is off by ~0.55 s.
+- **Open:** Whisper's `HALLUCINATIONS` list drops real lines like "อย่าลืมกดติดตามกันด้วยนะ"
+  (seen with the hint on). Needs real hallucination samples to tune `no_speech_prob`/`avg_logprob`.
+- **Z.AI — pending.** Default endpoint is the Coding Plan one (`/api/coding/paas/v4`); the plan only
+  covers `glm-5.3` and `glm-5.3-flash` and needs a *Coding Plan* key (separate from Standard keys
+  since 2026-10-16; wrong key/model/endpoint → error 1113). GLM 5.3 always thinks: `thinking:
+  disabled` → error 1210, use `reasoning_effort` low/high/max (`ZAI_REASONING_EFFORT`, default max).
+  Still to run: bench `zai:glm-5.3-flash` (and the free `glm-4.7-flash`/`glm-4.5-flash`) on the
+  built-in set. Reference scores, CPU Ollama: sailor2:8b 62, gemma3:4b 50, Typhoon 2.5 4B 50,
+  Typhoon 2.1 4B 38, qwen2.5:3b 0 (wrong edits).
 
 ## Commands
 

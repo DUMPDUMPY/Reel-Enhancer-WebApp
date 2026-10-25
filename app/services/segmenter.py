@@ -38,11 +38,11 @@ class Word:
     seg_index: int
 
 
-def _is_hallucination(text: str) -> bool:
+def _is_hallucination(text: str, phrases: bool = True) -> bool:
     t = re.sub(r"\s+", " ", text).strip().lower()
     if not t or _NON_SPEECH.match(t):
         return True
-    return any(h in t for h in HALLUCINATIONS) and display_width(t) <= 40
+    return phrases and any(h in t for h in HALLUCINATIONS) and display_width(t) <= 40
 
 
 def _segment_tokens(seg: dict) -> list[tuple[str, float, float]]:
@@ -85,7 +85,7 @@ def words_from_whisper(result: dict, extra_words: tuple[str, ...] = ()) -> list[
     """Re-tokenize each whisper segment into real Thai words and time each word."""
     words: list[Word] = []
     for seg_index, seg in enumerate(result.get("segments") or []):
-        if _is_hallucination(seg.get("text", "")):
+        if _is_hallucination(seg.get("text", ""), phrases=seg.get("source") != "elevenlabs"):
             continue
         tokens = _segment_tokens(seg)
         text = "".join(t for t, _, _ in tokens)
