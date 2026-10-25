@@ -1,4 +1,4 @@
-"""Compare Ollama models on the proofreading task.
+"""Compare proofreading models (local Ollama and cloud APIs) on the same text.
 
 A benchmark run is stored like a job (kind="bench") so it reuses the queue and
 the node progress UI: one node per model. With the built-in test set every cue
@@ -9,7 +9,7 @@ there is no answer key and the UI just shows each model's suggestions side by si
 import time
 
 from app import jobs
-from app.services import proofreader
+from app.services import llm, proofreader
 
 BUILTIN_CONTEXT = "กุ๊กไก่, เจ้าเหมียว, หมูจิ๋ว"
 
@@ -121,4 +121,4 @@ def bench_task(job_id: str) -> None:
 
 
 def nodes_for(models: list[str]) -> list[tuple[str, str, str, float]]:
-    return [(f"m:{m}", m, "Ollama", 1.0) for m in models]
+    return [(f"m:{m}", m, "Ollama" if llm.split_ref(m)[0].is_ollama else "Cloud", 1.0) for m in models]

@@ -6,6 +6,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Proofreading via API key** so the NAS doesn't have to run an LLM: Z.AI GLM, Typhoon API,
+  OpenRouter, Gemini or any OpenAI-compatible endpoint (`ZAI_API_KEY`, `TYPHOON_API_KEY`, ...).
+  Models are referenced as `provider:model` (e.g. `zai:glm-4.7-flash`); plain names stay Ollama.
+  `PROOFREAD_MODEL` sets the default. Dropdowns group models by provider; the comparison page can
+  pit cloud models against local ones.
 - **🧪 Model comparison page** (tab "ทดสอบโมเดล"): pick up to 8 Ollama models and run the
   same proofreading job on each, one node per model. Built-in Thai test set with an answer key
   (names, tone marks, ร/ล, homophones, plus slang that must not be "fixed") gives each model a

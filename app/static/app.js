@@ -69,17 +69,16 @@ async function loadSystem() {
   const chip = (ok, label) => `<span class="chip ${ok ? "ok" : "bad"}">${label}</span>`;
   $("#chips").innerHTML =
     chip(s.whisper.ok, "Whisper " + (s.whisper.ok ? "✓" : "✗")) +
-    chip(s.ollama.ok, "Ollama " + (s.ollama.ok ? "✓" : "✗")) +
+    chip(s.llm.ok, "AI ตรวจคำ " + (s.llm.ok ? "✓" : "✗")) +
     chip(s.render.mode === "vaapi", s.render.mode === "vaapi" ? "Render iGPU" : "Render CPU");
 
   const models = s.whisper.models.length ? s.whisper.models : [s.whisper.current];
   $("#model").innerHTML = models.map((m) => `<option ${m === s.whisper.current ? "selected" : ""}>${esc(m)}</option>`).join("");
 
-  const om = s.ollama.models.length ? s.ollama.models : [s.ollama.default_model];
-  $("#ollama-model").innerHTML = om.map((m) => `<option ${m === s.ollama.default_model ? "selected" : ""}>${esc(m)}</option>`).join("");
-  $("#proofread").disabled = !s.ollama.ok;
-  $("#btn-proofread").disabled = !s.ollama.ok;
-  if (!s.ollama.ok) $("#proofread").checked = false;
+  $("#llm-model").innerHTML = llmOptions(s.llm);
+  $("#proofread").disabled = !s.llm.ok;
+  $("#btn-proofread").disabled = !s.llm.ok;
+  if (!s.llm.ok) $("#proofread").checked = false;
 
   $("#st-font").innerHTML = s.fonts.map((f) => `<option value="${esc(f.family)}">${esc(f.family)}</option>`).join("");
   for (const f of s.fonts) {
@@ -92,6 +91,19 @@ async function loadSystem() {
   if (!state.style) state.style = { ...s.defaults.style };
   if (!state.ro) state.ro = { ...s.defaults.render_options };
   syncStyleInputs();
+}
+
+// <optgroup> per provider that is ready, default model selected.
+function llmOptions(l) {
+  const groups = l.providers.filter((p) => p.ok && p.models.length);
+  const all = groups.flatMap((p) => p.models);
+  let html = groups.map((p) => `<optgroup label="${esc(p.name)}">` +
+    p.models.map((m) => `<option value="${esc(m)}" ${m === l.default_model ? "selected" : ""}>${esc(m)}</option>`).join("") +
+    "</optgroup>").join("");
+  if (l.default_model && !all.includes(l.default_model)) {
+    html = `<option value="${esc(l.default_model)}" selected>${esc(l.default_model)}</option>` + html;
+  }
+  return html;
 }
 
 // ---------- step 1: upload ----------
@@ -202,7 +214,7 @@ function renderTask() {
   const running = t.state === "queued" || t.state === "running";
   $("#btn-transcribe").disabled = running;
   $("#btn-render").disabled = running;
-  $("#btn-proofread").disabled = running || !(state.sys && state.sys.ollama.ok);
+  $("#btn-proofread").disabled = running || !(state.sys && state.sys.llm.ok);
   for (const n of ["transcribe", "render"]) show(taskBox(n), false);
   if (!t.name || t.state === "idle") return;
   paintTask(taskBox(t.name), t);
@@ -285,13 +297,13 @@ async function poll() {
   }
   if (justFinished && t.name === "proofread") {
     const n = (job.suggestions || []).length;
-    toast(job.proofread_error ? job.proofread_error : n ? `Ollama แนะนำแก้ ${n} จุด` : "Ollama ไม่พบคำผิด", !!job.proofread_error);
+    toast(job.proofread_error ? job.proofread_error : n ? `AI แนะนำแก้ ${n} จุด` : "AI ไม่พบคำผิด", !!job.proofread_error);
   }
 }
 
 // ---------- step 2: transcribe ----------
 
-$("#proofread").addEventListener("change", () => show("#ollama-model-wrap", $("#proofread").checked));
+$("#proofread").addEventListener("change", () => show("#llm-model-wrap", $("#proofread").checked));
 
 $("#btn-transcribe").addEventListener("click", async () => {
   if (state.cues.length && !confirm("ถอดเสียงใหม่จะแทนที่ซับที่แก้ไว้ทั้งหมด ทำต่อไหม?")) return;
@@ -302,7 +314,7 @@ $("#btn-transcribe").addEventListener("click", async () => {
         model: $("#model").value || null,
         vad: $("#vad").checked,
         proofread: $("#proofread").checked,
-        ollama_model: $("#ollama-model").value || null,
+        llm_model: $("#llm-model").value || null,
       },
     });
     state.lastTaskKey = "";
@@ -417,14 +429,14 @@ $("#btn-add-now").addEventListener("click", () => {
 $("#btn-proofread").addEventListener("click", async () => {
   try {
     await flushSave();
-    const job = await api(`/api/jobs/${state.job.id}/proofread`, { json: { ollama_model: $("#ollama-model").value || null } });
+    const job = await api(`/api/jobs/${state.job.id}/proofread`, { json: { llm_model: $("#llm-model").value || null } });
     state.lastTaskKey = "";
     setJob(job, false);
-    toast("ส่งให้ Ollama ตรวจแล้ว รอสักครู่…");
+    toast("ส่งให้ AI ตรวจแล้ว รอสักครู่…");
   } catch (e) { toast(e.message, true); }
 });
 
-// Ollama suggestions: matched by cue id AND the original text, so stale ones disappear.
+// AI suggestions: matched by cue id AND the original text, so stale ones disappear.
 const flat = (s) => s.split("\n").map((l) => l.trim()).join("");
 
 function liveSuggestions() {
@@ -674,11 +686,14 @@ async function initBench() {
   // model checkboxes (keep what the user ticked when re-rendering)
   const box = $("#bench-models");
   const ticked = new Set([...box.querySelectorAll("input:checked")].map((i) => i.value));
-  if (!bench.inited) ticked.add(s.ollama.default_model);
-  box.innerHTML = s.ollama.ok && s.ollama.models.length
-    ? s.ollama.models.map((m) => `<label><input type="checkbox" value="${esc(m)}" ${ticked.has(m) ? "checked" : ""}> ${esc(m)}</label>`).join("")
-    : `<span class="empty">ติดต่อ Ollama ไม่ได้ หรือยังไม่มีโมเดล (${esc(s.ollama.status)})</span>`;
-  $("#btn-bench").disabled = !s.ollama.ok;
+  if (!bench.inited) ticked.add(s.llm.default_model);
+  box.innerHTML = s.llm.providers.map((p) => {
+    const head = `<div class="prov">${esc(p.name)} <span class="${p.ok ? "ok" : "bad"}">${esc(p.status)}</span></div>`;
+    const items = p.ok ? p.models.map((m) =>
+      `<label><input type="checkbox" value="${esc(m)}" ${ticked.has(m) ? "checked" : ""}> ${esc(m)}</label>`).join("") : "";
+    return head + items;
+  }).join("");
+  $("#btn-bench").disabled = !s.llm.ok;
 
   if (!bench.testset) {
     try { bench.testset = await api("/api/bench/testset"); } catch (_) { bench.testset = { items: [], context: "" }; }
@@ -727,7 +742,7 @@ function setBench(run) {
   bench.run = run;
   const t = run.task || {};
   const running = t.state === "queued" || t.state === "running";
-  $("#btn-bench").disabled = running || !(state.sys && state.sys.ollama.ok);
+  $("#btn-bench").disabled = running || !(state.sys && state.sys.llm.ok);
   if (t.name) paintTask($("#task-bench"), t);
   renderBenchResults(run);
   clearTimeout(bench.timer);

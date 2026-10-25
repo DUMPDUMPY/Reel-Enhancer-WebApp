@@ -62,7 +62,7 @@ def system() -> dict:
     caps = renderer.detect_caps()
     return {
         "whisper": {**transcriber.health(), "models": transcriber.list_models(), "current": transcriber.current_model()},
-        "ollama": {**proofreader.status(), "default_model": config.OLLAMA_MODEL},
+        "llm": proofreader.status(),
         "render": {"mode": caps.mode, "low_power": caps.low_power, "detail": caps.detail, "checked": caps.checked},
         "fonts": subtitles.list_fonts(),
         "defaults": {
@@ -166,7 +166,7 @@ class TranscribeRequest(BaseModel):
     model: str | None = None
     vad: bool = True
     proofread: bool = False
-    ollama_model: str | None = None
+    llm_model: str | None = None
 
 
 @app.post("/api/jobs/{job_id}/transcribe")
@@ -175,7 +175,7 @@ def transcribe(job_id: str, req: TranscribeRequest) -> dict:
     _ensure_idle(job)
     if req.hint is not None:
         jobs.update(job_id, hint=req.hint.strip())
-    jobs.submit(job_id, "transcribe", pipeline.TRANSCRIBE_NODES, pipeline.transcribe_task, req.model, req.vad, req.proofread, req.ollama_model)
+    jobs.submit(job_id, "transcribe", pipeline.TRANSCRIBE_NODES, pipeline.transcribe_task, req.model, req.vad, req.proofread, req.llm_model)
     return jobs.load(job_id)
 
 
@@ -225,7 +225,7 @@ def save_cues(job_id: str, req: CuesRequest) -> dict:
 
 
 class ProofreadRequest(BaseModel):
-    ollama_model: str | None = None
+    llm_model: str | None = None
 
 
 @app.post("/api/jobs/{job_id}/proofread")
@@ -234,7 +234,7 @@ def proofread(job_id: str, req: ProofreadRequest) -> dict:
     _ensure_idle(job)
     if not job.get("cues"):
         raise HTTPException(400, "ยังไม่มีซับให้ตรวจ")
-    jobs.submit(job_id, "proofread", pipeline.PROOFREAD_NODES, pipeline.proofread_task, req.ollama_model)
+    jobs.submit(job_id, "proofread", pipeline.PROOFREAD_NODES, pipeline.proofread_task, req.llm_model)
     return jobs.load(job_id)
 
 
@@ -317,8 +317,6 @@ class BenchRequest(BaseModel):
 
 @app.post("/api/bench")
 def start_bench(req: BenchRequest) -> dict:
-    if not config.OLLAMA_HOST:
-        raise HTTPException(400, "ยังไม่ได้ตั้ง OLLAMA_HOST")
     models = list(dict.fromkeys(m.strip() for m in req.models if m.strip()))
     if not models:
         raise HTTPException(400, "เลือกโมเดลอย่างน้อย 1 ตัว")

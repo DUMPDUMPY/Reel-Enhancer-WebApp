@@ -31,8 +31,18 @@ services:
     environment:
       - WHISPER_URL=http://whisper:8080
       - WHISPER_MODEL=ggml-large-v3-q5_0.bin   # keep the same as the whisper service
+      # --- AI proofreading (optional): cloud API with a key, or local Ollama ---
+      # Set a key to use that provider; the NAS then doesn't run any LLM itself.
+      - ZAI_API_KEY=                 # Z.AI GLM  (models: glm-4.7-flash, glm-4.5-flash, ...)
+      - TYPHOON_API_KEY=             # opentyphoon.ai (Thai): typhoon-v2.5-30b-a3b-instruct
+      - OPENROUTER_API_KEY=          # with OPENROUTER_MODELS=model-a,model-b
+      - GEMINI_API_KEY=
+      # Any other OpenAI-compatible API: CUSTOM_LLM_BASE_URL / CUSTOM_LLM_API_KEY / CUSTOM_LLM_MODELS
+      # Default model, e.g. zai:glm-4.7-flash. Empty = first provider that has a key, else Ollama.
+      - PROOFREAD_MODEL=
       # Ollama runs in another project on this NAS and publishes port 11434.
       # Use the NAS IP instead (e.g. http://192.168.1.4:11434) if host-gateway doesn't work.
+      # Leave OLLAMA_HOST empty to hide Ollama entirely.
       - OLLAMA_HOST=http://host.docker.internal:11434
       - OLLAMA_MODEL=gemma3:4b
       - RENDER_MODE=auto           # auto | vaapi | cpu

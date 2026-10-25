@@ -45,8 +45,8 @@
       <label class="field grow"><span>โมเดลถอดเสียง</span><select id="model"></select></label>
     </div>
     <label class="switch"><input type="checkbox" id="vad" checked><span>ตัดช่วงที่มีแต่เพลง/เงียบ (VAD)</span></label>
-    <label class="switch"><input type="checkbox" id="proofread"><span>ให้ Ollama ช่วยตรวจคำผิด</span></label>
-    <label class="field hidden" id="ollama-model-wrap"><span>โมเดล Ollama</span><select id="ollama-model"></select></label>
+    <label class="switch"><input type="checkbox" id="proofread"><span>ให้ AI ช่วยตรวจคำผิด</span></label>
+    <label class="field hidden" id="llm-model-wrap"><span>โมเดลตรวจคำ (ในเครื่อง หรือ API)</span><select id="llm-model"></select></label>
     <button class="btn primary" id="btn-transcribe">1. ถอดเสียงจับเวลา</button>
     <div class="task hidden" id="task-transcribe">
       <div class="task-head"><span class="msg"></span><span class="task-meta"><b class="pct"></b> · <span class="total-time"></span></span></div>
@@ -66,7 +66,7 @@
 
     <div class="suggestions hidden" id="suggestions">
       <div class="sg-head">
-        <strong>🤖 Ollama แนะนำแก้คำ</strong>
+        <strong>🤖 AI แนะนำแก้คำ</strong>
         <button class="btn small" id="btn-accept-all">ยอมรับทั้งหมด</button>
       </div>
       <ul id="sg-list"></ul>
@@ -139,8 +139,8 @@
 
 <main id="view-bench" class="hidden">
   <section class="card">
-    <h2>🧪 เปรียบเทียบโมเดล Ollama</h2>
-    <p class="note">ส่งข้อความชุดเดียวกันให้แต่ละโมเดลตรวจคำผิดทีละตัว แล้วเทียบคะแนน เวลา และความเร็วบนเครื่องจริง
+    <h2>🧪 เปรียบเทียบโมเดลตรวจคำ</h2>
+    <p class="note">ส่งข้อความชุดเดียวกันให้แต่ละโมเดล (Ollama ในเครื่อง หรือ API ที่ใส่ key ไว้) ตรวจคำผิดทีละตัว แล้วเทียบคะแนน เวลา และความเร็วบนเครื่องจริง
       ชุดทดสอบมาตรฐานมีทั้งคำที่ต้องแก้ และภาษาพูดที่ห้ามแก้</p>
     <div class="field"><span>เลือกโมเดล (ได้สูงสุด 8 ตัว)</span><div class="checks" id="bench-models"></div></div>
     <label class="field"><span>ข้อความที่ใช้ทดสอบ</span><select id="bench-source"></select></label>

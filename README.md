@@ -8,7 +8,7 @@
 |---|---|---|
 | ถอดเสียง + จับเวลา | whisper.cpp server (Vulkan) + Silero VAD | iGPU |
 | ตัดคำ/ตัดบรรทัดไทย | PyThaiNLP (ไม่ตัดกลางคำ, ไม่ตัดกลางชื่อตัวละคร) | CPU (เบามาก) |
-| ตรวจคำผิด (เลือกได้) | Ollama ที่มีอยู่แล้ว | iGPU ของ Ollama |
+| ตรวจคำผิด (เลือกได้) | API ที่ใส่ key (Z.AI GLM, Typhoon, OpenRouter, Gemini) หรือ Ollama ในเครื่อง | Cloud / iGPU ของ Ollama |
 | ซับ .ass | pysubs2 + ฟอนต์ Kanit / Prompt / Sarabun | – |
 | ขยาย/ลดนอยส์/เพิ่มความคม/เข้ารหัส | FFmpeg VAAPI (`scale_vaapi`, `denoise_vaapi`, `sharpness_vaapi`, `h264_vaapi`) | iGPU |
 | วาดตัวหนังสือซับลงภาพ | libass | CPU (เบามาก) |
@@ -69,12 +69,31 @@ curl http://<IP-NAS>:8000/api/system
 
 สเปกไฟล์ที่ได้: 1080×1920, H.264 High, 30 fps, VBR 12 Mbps (สูงสุด 15), AAC 192k, faststart
 
+## ตรวจคำผิดด้วย API key (ไม่ต้องรันโมเดลบน NAS)
+
+ใส่ key ใน `docker-compose.yml` แล้ว Recreate project โมเดลของเจ้านั้นจะขึ้นใน dropdown ทั้งหน้าทำคลิปและหน้าทดสอบโมเดล
+
+| ตัวแปร | ผู้ให้บริการ | ตัวอย่างโมเดล |
+|---|---|---|
+| `ZAI_API_KEY` | Z.AI (GLM) | `zai:glm-4.7-flash`, `zai:glm-4.5-flash` (`ZAI_MODELS=` เพื่อกำหนดรายการเอง) |
+| `TYPHOON_API_KEY` | opentyphoon.ai (โมเดลไทย) | `typhoon:typhoon-v2.5-30b-a3b-instruct` |
+| `OPENROUTER_API_KEY` + `OPENROUTER_MODELS` | OpenRouter | ตามที่ใส่ใน `OPENROUTER_MODELS` |
+| `GEMINI_API_KEY` | Google Gemini | `gemini:gemini-2.5-flash` |
+| `CUSTOM_LLM_BASE_URL` / `_API_KEY` / `_MODELS` | API แบบ OpenAI-compatible อื่นๆ | `custom:<ชื่อโมเดล>` |
+
+- ชื่อโมเดลขึ้นต้นด้วยชื่อผู้ให้บริการ เช่น `zai:glm-4.7-flash` ถ้าไม่มี prefix จะถือเป็นโมเดล Ollama (`gemma3:4b`)
+- `PROOFREAD_MODEL` ตั้งค่าเริ่มต้นได้ ถ้าว่างไว้ ระบบจะใช้ผู้ให้บริการตัวแรกที่มี key แล้วค่อยถอยไปใช้ Ollama
+- ข้อความซับ (ไม่ใช่วิดีโอหรือเสียง) จะถูกส่งไปยังผู้ให้บริการนั้น
+- ใช้หน้า **ทดสอบโมเดล** เทียบ API กับ Ollama ด้วยชุดทดสอบเดียวกันได้ก่อนเลือกใช้จริง
+
 ## การตั้งค่า (environment ใน docker-compose.yml)
 
 | ตัวแปร | ค่าเริ่มต้น | ความหมาย |
 |---|---|---|
 | `WHISPER_MODEL` | `ggml-large-v3-q5_0.bin` | โมเดลถอดเสียง (ต้องตั้งให้ตรงกันทั้ง 2 service) |
-| `OLLAMA_HOST` / `OLLAMA_MODEL` | host.docker.internal / `gemma3:4b` | ปล่อย `OLLAMA_HOST` ว่างเพื่อปิดฟีเจอร์ตรวจคำผิด |
+| `ZAI_API_KEY`, `TYPHOON_API_KEY`, ... | – | API key สำหรับตรวจคำผิดผ่าน cloud (ดูหัวข้อด้านบน) |
+| `PROOFREAD_MODEL` | (ว่าง) | โมเดลตรวจคำเริ่มต้น เช่น `zai:glm-4.7-flash` |
+| `OLLAMA_HOST` / `OLLAMA_MODEL` | host.docker.internal / `gemma3:4b` | ปล่อย `OLLAMA_HOST` ว่างเพื่อซ่อน Ollama |
 | `RENDER_MODE` | `auto` | `auto` / `vaapi` / `cpu` |
 | `VIDEO_BITRATE` / `VIDEO_MAXRATE` | `12M` / `15M` | bitrate ของไฟล์ที่ได้ |
 | `MAX_LINE_WIDTH` | `20` | จำนวนตัวอักษรต่อบรรทัดตอนจัดท่อนอัตโนมัติ (ไม่นับสระบน/ล่าง วรรณยุกต์) |
@@ -111,7 +130,8 @@ app/
     transcriber.py     เรียก whisper.cpp server
     segmenter.py       แปลงผล Whisper เป็นท่อนซับ 1–2 บรรทัด (ตัดคำด้วย PyThaiNLP)
     thai_text.py       ความกว้างตัวอักษรไทย, ตัดบรรทัด
-    proofreader.py     Ollama (ตอบเป็น JSON ที่ตรวจรูปแบบแล้ว, ล้มเหลวก็ไม่กระทบงาน)
+    llm.py             ผู้ให้บริการ LLM: Ollama + API แบบ OpenAI-compatible (Z.AI, Typhoon, OpenRouter, Gemini)
+    proofreader.py     ตรวจคำผิด (ตอบเป็น JSON ที่ตรวจรูปแบบแล้ว, ลองใหม่ 1 ครั้ง, ล้มเหลวก็ไม่กระทบงาน)
     subtitles.py       สร้าง .ass / .vtt
     renderer.py        คำสั่ง FFmpeg (VAAPI + fallback CPU), ตรวจความสามารถ iGPU
   static/              หน้าเว็บสำหรับมือถือ

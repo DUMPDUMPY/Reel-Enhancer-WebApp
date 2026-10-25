@@ -84,7 +84,9 @@ def test_rejects_non_video(client):
 
 def test_system_reports_offline_services(client):
     s = client.get("/api/system").json()
-    assert s["whisper"]["ok"] is False and s["ollama"]["ok"] is False
+    assert s["whisper"]["ok"] is False and s["llm"]["ok"] is False
+    by_key = {p["key"]: p for p in s["llm"]["providers"]}
+    assert by_key["zai"]["enabled"] is False and "API key" in by_key["zai"]["status"]
     assert s["render"]["mode"] == "cpu"
     assert any(f["family"] == "Kanit" for f in s["fonts"])
 
