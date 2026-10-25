@@ -18,6 +18,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Ollama failures are shown as a warning node; the transcript is kept and the job still finishes.
 - `CLAUDE.md` with project context and rules for AI-assisted development.
 
+- Ollama answers that drop or merge items are retried once (`proofreader.ask_validated`),
+  in both proofreading and the comparison page; failed raw answers are kept in bench results.
+- Comparison score now also subtracts "wrong edits" (an error changed into a different error).
+
 ### Changed
 - `proofreader.ask()` returns Ollama timing stats; `proofread()` builds on it.
 - Job API returns `task.steps` and the server time (`now`) so the phone can show accurate timers.

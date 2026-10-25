@@ -93,13 +93,31 @@ def ask(items: list[dict], context: str = "", model: str | None = None) -> tuple
     return (answer.get("items", []) if isinstance(answer, dict) else []), stats
 
 
+def ask_validated(items: list[dict], context: str = "", model: str | None = None, retries: int = 1) -> dict:
+    """ask() + validate(), retrying when the answer is malformed.
+
+    Small models occasionally drop or merge items even with a JSON schema; a
+    second try usually comes back complete. Returns suggestions, the accepted
+    answer, stats of the last call, attempts and the raw answers that failed.
+    """
+    failed = []
+    for attempt in range(1, retries + 2):
+        received, stats = ask(items, context, model)
+        try:
+            suggestions = validate(items, received)
+        except ValueError as e:
+            failed.append({"error": str(e), "answer": received})
+            continue
+        return {"suggestions": suggestions, "received": received, "stats": stats, "attempts": attempt, "failed": failed}
+    raise ValueError(f"{failed[-1]['error']} (ลอง {len(failed)} ครั้ง)")
+
+
 def proofread(cues: list[dict], context: str = "", model: str | None = None) -> list[dict]:
     """Return suggestions [{id, before, after}] for cues whose spelling the model fixed."""
     if not config.OLLAMA_HOST or not cues:
         return []
     items = [{"id": int(c["id"]), "text": _flat(c["text"])} for c in cues]
-    received, _stats = ask(items, context, model)
-    return validate(items, received)
+    return ask_validated(items, context, model)["suggestions"]
 
 
 def validate(sent: list[dict], received: list) -> list[dict]:

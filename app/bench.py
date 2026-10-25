@@ -46,11 +46,15 @@ def score(items: list[dict], finals: dict[int, str]) -> dict:
     with_errors = [it for it in items if _norm(it["text"]) != _norm(it["expected"])]
     clean = [it for it in items if _norm(it["text"]) == _norm(it["expected"])]
     fixed = sum(_norm(finals[it["id"]]) == _norm(it["expected"]) for it in with_errors)
+    # Changed a wrong line into a different wrong line, e.g. ตั้งจัย -> ตั้งจี้: worse than leaving it.
+    wrong = sum(
+        _norm(finals[it["id"]]) not in (_norm(it["expected"]), _norm(it["text"])) for it in with_errors
+    )
     over = sum(_norm(finals[it["id"]]) != _norm(it["expected"]) for it in clean)
-    # Every error fixed is +1, every correct line broken is -1, scaled to 0-100.
-    pts = max(fixed - over, 0)
+    # Every error fixed is +1, every bad edit (wrong fix or broken correct line) is -1, scaled to 0-100.
+    pts = max(fixed - wrong - over, 0)
     return {
-        "fixed": fixed, "errors": len(with_errors),
+        "fixed": fixed, "errors": len(with_errors), "wrong_edits": wrong,
         "over_edits": over, "clean": len(clean),
         "score": round(100 * pts / max(len(with_errors), 1)),
     }
@@ -59,12 +63,12 @@ def score(items: list[dict], finals: dict[int, str]) -> dict:
 def run_one(items: list[dict], context: str, model: str) -> dict:
     sent = [{"id": it["id"], "text": it["text"]} for it in items]
     t0 = time.time()
-    received, stats = proofreader.ask(sent, context, model)
-    wall = round(time.time() - t0, 2)
     try:
-        suggestions = proofreader.validate(sent, received)
+        out = proofreader.ask_validated(sent, context, model)
     except ValueError as e:
-        return {"ok": False, "error": str(e), "stats": stats, "wall_s": wall}
+        return {"ok": False, "error": str(e), "wall_s": round(time.time() - t0, 2)}
+    wall = round(time.time() - t0, 2)
+    suggestions, received, stats = out["suggestions"], out["received"], out["stats"]
 
     # Edits the validator threw away as rewrites (too different from the original).
     got = {it.get("id"): str(it.get("text", "")).strip() for it in received if isinstance(it, dict)}
@@ -76,6 +80,7 @@ def run_one(items: list[dict], context: str, model: str) -> dict:
     result = {
         "ok": True, "stats": stats, "wall_s": wall,
         "suggestions": suggestions, "rejected_rewrites": rejected,
+        "attempts": out["attempts"], "failed_answers": out["failed"],
         "finals": {str(k): v for k, v in finals.items()},
     }
     if all("expected" in it for it in items):
@@ -102,10 +107,12 @@ def bench_task(job_id: str) -> None:
         parts = []
         if "score" in res:
             sc = res["score"]
-            parts.append(f"คะแนน {sc['score']} · แก้ถูก {sc['fixed']}/{sc['errors']} · แก้เกิน {sc['over_edits']}")
+            parts.append(f"คะแนน {sc['score']} · แก้ถูก {sc['fixed']}/{sc['errors']} · แก้ผิด {sc['wrong_edits']} · แก้เกิน {sc['over_edits']}")
         else:
             parts.append(f"แนะนำ {len(res['suggestions'])} จุด")
         parts.append(f"{res['wall_s']} วิ")
+        if res["attempts"] > 1:
+            parts.append(f"ตอบผิดรูปแบบ {res['attempts'] - 1} ครั้ง ลองใหม่แล้วผ่าน")
         if st.get("tokens_per_s"):
             parts.append(f"{st['tokens_per_s']} tok/s")
         jobs.step_update(job_id, key, "done", detail=" · ".join(parts))

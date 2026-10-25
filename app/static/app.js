@@ -753,12 +753,13 @@ function renderBenchResults(run) {
   rows.sort((a, b) => (b.r.ok - a.r.ok) || ((b.r.score?.score ?? 0) - (a.r.score?.score ?? 0)) || ((a.r.wall_s ?? 1e9) - (b.r.wall_s ?? 1e9)));
   const best = rows.find((x) => x.r.ok);
   const head = keyed
-    ? "<tr><th>โมเดล</th><th>คะแนน</th><th>แก้ถูก<span class=sub>แก้เกิน</span></th><th>เวลา<span class=sub>tok/s</span></th></tr>"
+    ? "<tr><th>โมเดล</th><th>คะแนน</th><th>แก้ถูก<span class=sub>ผิด · เกิน</span></th><th>เวลา<span class=sub>tok/s</span></th></tr>"
     : "<tr><th>โมเดล</th><th>แนะนำแก้</th><th>ถูกตัดทิ้ง</th><th>เวลา<span class=sub>tok/s</span></th></tr>";
   $("#bench-summary").innerHTML = head + rows.map(({ m, r }) => {
     const notes = [];
     if (r.stats?.load_s >= 0.5) notes.push(`โหลดโมเดล ${r.stats.load_s} วิ`);
     if (r.stats?.thinking) notes.push("คิดก่อนตอบ");
+    if (r.attempts > 1) notes.push(`ตอบผิดรูปแบบ ${r.attempts - 1} ครั้ง (ลองใหม่แล้วผ่าน)`);
     if (r.rejected_rewrites) notes.push(`ถูกตัดทิ้ง ${r.rejected_rewrites} (เขียนใหม่เกิน)`);
     const name = `${best && best.m === m && rows.length > 1 ? "🏆 " : ""}${esc(m)}${notes.length ? `<span class="sub">${esc(notes.join(" · "))}</span>` : ""}`;
     if (!r.ok) return `<tr><td>${name}</td><td class="err" colspan="3">❌ ${esc(r.error || "ล้มเหลว")}</td></tr>`;
@@ -768,7 +769,7 @@ function renderBenchResults(run) {
       const sc = r.score;
       return `<tr class="${best && best.m === m ? "best" : ""}"><td>${name}</td>
         <td><b>${sc.score}</b><span class="score-bar"><i style="width:${sc.score}%"></i></span></td>
-        <td>${sc.fixed}/${sc.errors}<span class="sub">${sc.over_edits}/${sc.clean}</span></td><td>${time}<span class="sub">${tps}</span></td></tr>`;
+        <td>${sc.fixed}/${sc.errors}<span class="sub">${sc.wrong_edits ?? 0} · ${sc.over_edits}</span></td><td>${time}<span class="sub">${tps}</span></td></tr>`;
     }
     return `<tr><td>${name}</td><td>${r.suggestions.length}</td><td>${r.rejected_rewrites || 0}</td><td>${time}<span class="sub">${tps}</span></td></tr>`;
   }).join("");
@@ -785,7 +786,7 @@ function renderBenchResults(run) {
       if (keyed) {
         const good = norm(fin) === norm(it.expected);
         cls = good ? "ok" : "bad";
-        label = (good ? "✓ " : "✗ ") + (changed ? fin : "ไม่แก้");
+        label = (good ? "✓ " : "✗ ") + (changed ? fin : "ไม่แก้") + (!good && changed && it.text !== it.expected ? " (แก้ผิด)" : "");
       } else {
         cls = changed ? "changed" : "same";
         label = changed ? "✎ " + fin : "ไม่แก้";
