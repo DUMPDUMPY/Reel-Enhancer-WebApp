@@ -68,13 +68,15 @@ Keys are provided only as environment variables/secrets, never in chat: `ZAI_API
   without a hint its segments merge two sentences and cue timing is off by ~0.55 s.
 - **Open:** Whisper's `HALLUCINATIONS` list drops real lines like "อย่าลืมกดติดตามกันด้วยนะ"
   (seen with the hint on). Needs real hallucination samples to tune `no_speech_prob`/`avg_logprob`.
-- **Z.AI — pending.** Default endpoint is the Coding Plan one (`/api/coding/paas/v4`); the plan only
-  covers `glm-5.3` and `glm-5.3-flash` and needs a *Coding Plan* key (separate from Standard keys
-  since 2026-10-16; wrong key/model/endpoint → error 1113). GLM 5.3 always thinks: `thinking:
-  disabled` → error 1210, use `reasoning_effort` low/high/max (`ZAI_REASONING_EFFORT`, default max).
-  Still to run: bench `zai:glm-5.3-flash` (and the free `glm-4.7-flash`/`glm-4.5-flash`) on the
-  built-in set. Reference scores, CPU Ollama: sailor2:8b 62, gemma3:4b 50, Typhoon 2.5 4B 50,
-  Typhoon 2.1 4B 38, qwen2.5:3b 0 (wrong edits).
+- **Z.AI — verified (Coding Plan key).** Endpoint `/api/coding/paas/v4`; the plan covers only
+  `glm-5.3` and `glm-5.3-flash` (other models → 1113/1314; Coding Plan keys are separate from
+  Standard keys since 2026-10-16). GLM 5.3 always thinks: the Coding Plan endpoint silently ignores
+  `thinking: disabled` (the Standard endpoint rejects it with 1210), so `llm` sends
+  `reasoning_effort` (`ZAI_REASONING_EFFORT`, low/high/max, default max) up front for `glm-5.3*`.
+  Built-in set, 3 runs each: glm-5.3 max 100 (15 s), high 100 (13 s), low 88/88/100 (5–6 s);
+  glm-5.3-flash max 50/88/88, high 62/75/75, low 50–88. No over-edits of slang from either.
+  Reference, CPU Ollama: sailor2:8b 62, gemma3:4b 50, Typhoon 2.5 4B 50, Typhoon 2.1 4B 38,
+  qwen2.5:3b 0 (wrong edits).
 
 ## Commands
 

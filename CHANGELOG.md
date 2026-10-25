@@ -28,7 +28,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Z.AI now uses the GLM Coding Plan endpoint (`https://api.z.ai/api/coding/paas/v4`) by default;
   set `ZAI_BASE_URL=https://api.z.ai/api/paas/v4` for a pay-as-you-go key. GLM 5.3 models, which
-  can't turn thinking off, are retried with `reasoning_effort` from `ZAI_REASONING_EFFORT` (default `max`).
+  always think, get `reasoning_effort` from `ZAI_REASONING_EFFORT` (default `max`); other models
+  that refuse `thinking: disabled` are retried the same way. Default Z.AI model is now `glm-5.3`
+  (100 on the built-in test set; `glm-5.3-flash` 50–88).
 ### Fixed
 - ElevenLabs transcripts no longer lose real lines such as "อย่าลืมกดติดตาม…": the Whisper
   outro-hallucination filter is skipped for Scribe segments.

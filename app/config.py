@@ -44,7 +44,7 @@ ELEVENLABS_KEYTERMS = _env("ELEVENLABS_KEYTERMS", "1") not in ("0", "false", "no
 # Empty OLLAMA_HOST disables Ollama.
 OLLAMA_HOST = _env("OLLAMA_HOST", "http://host.docker.internal:11434").rstrip("/")
 OLLAMA_MODEL = _env("OLLAMA_MODEL", "gemma3:4b")
-# Default model for proofreading, e.g. "zai:glm-4.7-flash". Empty: first cloud provider with a key, else Ollama.
+# Default model for proofreading, e.g. "zai:glm-5.3". Empty: first cloud provider with a key, else Ollama.
 PROOFREAD_MODEL = _env("PROOFREAD_MODEL", "")
 OLLAMA_TIMEOUT = _env_float("OLLAMA_TIMEOUT", 120)  # also used for cloud APIs
 

@@ -33,9 +33,11 @@ class Provider:
     # Used instead of extra_body's thinking switch for models that refuse to turn thinking off.
     thinking_body: dict = field(default_factory=dict)
     always_think: set[str] = field(default_factory=set)  # learned from the API's refusal
+    always_think_re: str = ""  # known up front; the Coding Plan endpoint ignores "disabled" silently
 
     def body_for(self, model: str) -> dict:
-        return {**self.extra_body, **self.thinking_body} if model in self.always_think else dict(self.extra_body)
+        thinks = model in self.always_think or bool(self.always_think_re and re.match(self.always_think_re, model))
+        return {**self.extra_body, **self.thinking_body} if thinks else dict(self.extra_body)
 
     @property
     def is_ollama(self) -> bool:
@@ -57,12 +59,15 @@ def _build() -> dict[str, Provider]:
         Provider(
             # Coding Plan endpoint: plan subscribers are billed against the plan, not pay-as-you-go credit.
             "zai", "Z.AI GLM", e("ZAI_BASE_URL", "https://api.z.ai/api/coding/paas/v4"), e("ZAI_API_KEY", ""),
-            default_models=_models_env("ZAI") or ["glm-4.7-flash", "glm-4.5-flash"],
+            # The Coding Plan covers only GLM 5.3 (bench: glm-5.3 100, -flash 50-88); glm-4.7-flash is free
+            # with a Standard key.
+            default_models=_models_env("ZAI") or ["glm-5.3", "glm-5.3-flash", "glm-4.7-flash"],
             curated=bool(_models_env("ZAI")),
             # GLM 4.5+ think before answering by default; spelling fixes don't need it.
             extra_body={"thinking": {"type": "disabled"}},
             # GLM 5.3 always thinks and rejects "disabled" (error 1210); it takes an effort instead.
             thinking_body={"thinking": {"type": "enabled"}, "reasoning_effort": e("ZAI_REASONING_EFFORT", "max")},
+            always_think_re=r"glm-5\.3",
         ),
         Provider(
             "typhoon", "Typhoon API", e("TYPHOON_BASE_URL", "https://api.opentyphoon.ai/v1"), e("TYPHOON_API_KEY", ""),
