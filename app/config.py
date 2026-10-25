@@ -8,6 +8,9 @@ def _env(name: str, default: str) -> str:
     return os.environ.get(name, default).strip()
 
 
+env = _env  # public alias for modules that read their own variables (services/llm.py)
+
+
 def _env_int(name: str, default: int) -> int:
     return int(_env(name, str(default)))
 
@@ -29,10 +32,21 @@ MODELS_DIR = Path(_env("MODELS_DIR", "/models"))
 WHISPER_DEFAULT_MODEL = _env("WHISPER_MODEL", "ggml-large-v3-q5_0.bin")
 WHISPER_TIMEOUT = _env_float("WHISPER_TIMEOUT", 600)
 
-# Ollama proofreader (optional). Empty OLLAMA_HOST disables it.
+# Cloud speech-to-text (optional): with a key, "elevenlabs:scribe_v2" shows up next to the Whisper models.
+ELEVENLABS_API_KEY = _env("ELEVENLABS_API_KEY", "")
+ELEVENLABS_BASE_URL = _env("ELEVENLABS_BASE_URL", "https://api.elevenlabs.io").rstrip("/")
+ELEVENLABS_STT_MODEL = _env("ELEVENLABS_STT_MODEL", "scribe_v2")
+# Send hint words as Scribe "keyterms" (better names, +20% cost).
+ELEVENLABS_KEYTERMS = _env("ELEVENLABS_KEYTERMS", "1") not in ("0", "false", "no", "")
+
+# Proofreading LLM (optional). Local Ollama, or a cloud API with a key (see services/llm.py:
+# ZAI_API_KEY, TYPHOON_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY, CUSTOM_LLM_*).
+# Empty OLLAMA_HOST disables Ollama.
 OLLAMA_HOST = _env("OLLAMA_HOST", "http://host.docker.internal:11434").rstrip("/")
 OLLAMA_MODEL = _env("OLLAMA_MODEL", "gemma3:4b")
-OLLAMA_TIMEOUT = _env_float("OLLAMA_TIMEOUT", 120)
+# Default model for proofreading, e.g. "zai:glm-4.7-flash". Empty: first cloud provider with a key, else Ollama.
+PROOFREAD_MODEL = _env("PROOFREAD_MODEL", "")
+OLLAMA_TIMEOUT = _env_float("OLLAMA_TIMEOUT", 120)  # also used for cloud APIs
 
 # Rendering. RENDER_MODE: auto | vaapi | cpu
 RENDER_MODE = _env("RENDER_MODE", "auto")

@@ -68,18 +68,23 @@ async function loadSystem() {
   const s = state.sys;
   const chip = (ok, label) => `<span class="chip ${ok ? "ok" : "bad"}">${label}</span>`;
   $("#chips").innerHTML =
-    chip(s.whisper.ok, "Whisper " + (s.whisper.ok ? "✓" : "✗")) +
-    chip(s.ollama.ok, "Ollama " + (s.ollama.ok ? "✓" : "✗")) +
+    chip(s.whisper.ok || s.stt_cloud.ok, "ถอดเสียง " + (s.whisper.ok ? "✓" : s.stt_cloud.ok ? "☁" : "✗")) +
+    chip(s.llm.ok, "AI ตรวจคำ " + (s.llm.ok ? "✓" : "✗")) +
     chip(s.render.mode === "vaapi", s.render.mode === "vaapi" ? "Render iGPU" : "Render CPU");
 
   const models = s.whisper.models.length ? s.whisper.models : [s.whisper.current];
-  $("#model").innerHTML = models.map((m) => `<option ${m === s.whisper.current ? "selected" : ""}>${esc(m)}</option>`).join("");
+  $("#model").innerHTML =
+    `<optgroup label="Whisper บน iGPU (NAS)">` +
+    models.map((m) => `<option value="${esc(m)}" ${m === s.whisper.current ? "selected" : ""}>${esc(m)}</option>`).join("") +
+    `</optgroup>` +
+    (s.stt_cloud.models.length
+      ? `<optgroup label="Cloud API">` + s.stt_cloud.models.map((m) => `<option value="${esc(m)}">${esc(m)}</option>`).join("") + `</optgroup>`
+      : "");
 
-  const om = s.ollama.models.length ? s.ollama.models : [s.ollama.default_model];
-  $("#ollama-model").innerHTML = om.map((m) => `<option ${m === s.ollama.default_model ? "selected" : ""}>${esc(m)}</option>`).join("");
-  $("#proofread").disabled = !s.ollama.ok;
-  $("#btn-proofread").disabled = !s.ollama.ok;
-  if (!s.ollama.ok) $("#proofread").checked = false;
+  $("#llm-model").innerHTML = llmOptions(s.llm);
+  $("#proofread").disabled = !s.llm.ok;
+  $("#btn-proofread").disabled = !s.llm.ok;
+  if (!s.llm.ok) $("#proofread").checked = false;
 
   $("#st-font").innerHTML = s.fonts.map((f) => `<option value="${esc(f.family)}">${esc(f.family)}</option>`).join("");
   for (const f of s.fonts) {
@@ -92,6 +97,19 @@ async function loadSystem() {
   if (!state.style) state.style = { ...s.defaults.style };
   if (!state.ro) state.ro = { ...s.defaults.render_options };
   syncStyleInputs();
+}
+
+// <optgroup> per provider that is ready, default model selected.
+function llmOptions(l) {
+  const groups = l.providers.filter((p) => p.ok && p.models.length);
+  const all = groups.flatMap((p) => p.models);
+  let html = groups.map((p) => `<optgroup label="${esc(p.name)}">` +
+    p.models.map((m) => `<option value="${esc(m)}" ${m === l.default_model ? "selected" : ""}>${esc(m)}</option>`).join("") +
+    "</optgroup>").join("");
+  if (l.default_model && !all.includes(l.default_model)) {
+    html = `<option value="${esc(l.default_model)}" selected>${esc(l.default_model)}</option>` + html;
+  }
+  return html;
 }
 
 // ---------- step 1: upload ----------
@@ -158,7 +176,7 @@ function setJob(job, replaceCues) {
   if (job.now) clockSkew = job.now - Date.now() / 1000;
   const firstLoad = !state.job || state.job.id !== job.id;
   state.job = job;
-  if (firstLoad) history.replaceState(null, "", `#job=${job.id}`);
+  if (firstLoad && !location.hash.startsWith("#bench")) history.replaceState(null, "", `#job=${job.id}`);
   if (replaceCues) {
     state.cues = (job.cues || []).map((c) => ({ ...c }));
     state.dirty = false;
@@ -202,12 +220,17 @@ function renderTask() {
   const running = t.state === "queued" || t.state === "running";
   $("#btn-transcribe").disabled = running;
   $("#btn-render").disabled = running;
-  $("#btn-proofread").disabled = running || !(state.sys && state.sys.ollama.ok);
+  $("#btn-proofread").disabled = running || !(state.sys && state.sys.llm.ok);
   for (const n of ["transcribe", "render"]) show(taskBox(n), false);
   if (!t.name || t.state === "idle") return;
-  const box = taskBox(t.name);
-  show(box, true);
+  paintTask(taskBox(t.name), t);
+  if (t.state === "error" && t.name === "render") loadLog();
+  if (running) schedulePoll();
+}
 
+// Draw a task as a pipeline of nodes into one of the .task boxes.
+function paintTask(box, t) {
+  show(box, true);
   const pct = t.state === "done" ? 1 : t.progress || 0;
   box.querySelector(".progress > div").style.width = pct * 100 + "%";
   box.querySelector(".pct").textContent = Math.round(pct * 100) + "%";
@@ -238,8 +261,6 @@ function renderTask() {
   err.textContent = t.state === "error" ? t.error || t.message : "";
   show(err, t.state === "error" && !!(t.error || t.message));
   tickTimes();
-  if (t.state === "error" && t.name === "render") loadLog();
-  if (running) schedulePoll();
 }
 
 // Live elapsed time on every running node, without waiting for the next poll.
@@ -282,13 +303,13 @@ async function poll() {
   }
   if (justFinished && t.name === "proofread") {
     const n = (job.suggestions || []).length;
-    toast(job.proofread_error ? job.proofread_error : n ? `Ollama แนะนำแก้ ${n} จุด` : "Ollama ไม่พบคำผิด", !!job.proofread_error);
+    toast(job.proofread_error ? job.proofread_error : n ? `AI แนะนำแก้ ${n} จุด` : "AI ไม่พบคำผิด", !!job.proofread_error);
   }
 }
 
 // ---------- step 2: transcribe ----------
 
-$("#proofread").addEventListener("change", () => show("#ollama-model-wrap", $("#proofread").checked));
+$("#proofread").addEventListener("change", () => show("#llm-model-wrap", $("#proofread").checked));
 
 $("#btn-transcribe").addEventListener("click", async () => {
   if (state.cues.length && !confirm("ถอดเสียงใหม่จะแทนที่ซับที่แก้ไว้ทั้งหมด ทำต่อไหม?")) return;
@@ -299,7 +320,7 @@ $("#btn-transcribe").addEventListener("click", async () => {
         model: $("#model").value || null,
         vad: $("#vad").checked,
         proofread: $("#proofread").checked,
-        ollama_model: $("#ollama-model").value || null,
+        llm_model: $("#llm-model").value || null,
       },
     });
     state.lastTaskKey = "";
@@ -414,14 +435,14 @@ $("#btn-add-now").addEventListener("click", () => {
 $("#btn-proofread").addEventListener("click", async () => {
   try {
     await flushSave();
-    const job = await api(`/api/jobs/${state.job.id}/proofread`, { json: { ollama_model: $("#ollama-model").value || null } });
+    const job = await api(`/api/jobs/${state.job.id}/proofread`, { json: { llm_model: $("#llm-model").value || null } });
     state.lastTaskKey = "";
     setJob(job, false);
-    toast("ส่งให้ Ollama ตรวจแล้ว รอสักครู่…");
+    toast("ส่งให้ AI ตรวจแล้ว รอสักครู่…");
   } catch (e) { toast(e.message, true); }
 });
 
-// Ollama suggestions: matched by cue id AND the original text, so stale ones disappear.
+// AI suggestions: matched by cue id AND the original text, so stale ones disappear.
 const flat = (s) => s.split("\n").map((l) => l.trim()).join("");
 
 function liveSuggestions() {
@@ -645,17 +666,192 @@ async function loadLog() {
   } catch (_) {}
 }
 
+// ---------- tabs ----------
+
+function showView(name) {
+  show("#view-edit", name === "edit");
+  show("#view-bench", name === "bench");
+  document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("on", b.dataset.view === name));
+  if (name === "bench") initBench();
+}
+
+document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => {
+  showView(b.dataset.view);
+  if (b.dataset.view === "bench") history.replaceState(null, "", bench.run ? `#bench=${bench.run.id}` : "#bench");
+  else history.replaceState(null, "", state.job ? `#job=${state.job.id}` : location.pathname);
+  window.scrollTo({ top: 0 });
+}));
+
+// ---------- model comparison ----------
+
+const bench = { testset: null, run: null, timer: null, inited: false };
+
+async function initBench() {
+  if (!state.sys) await loadSystem();
+  const s = state.sys;
+  // model checkboxes (keep what the user ticked when re-rendering)
+  const box = $("#bench-models");
+  const ticked = new Set([...box.querySelectorAll("input:checked")].map((i) => i.value));
+  if (!bench.inited) ticked.add(s.llm.default_model);
+  box.innerHTML = s.llm.providers.map((p) => {
+    const head = `<div class="prov">${esc(p.name)} <span class="${p.ok ? "ok" : "bad"}">${esc(p.status)}</span></div>`;
+    const items = p.ok ? p.models.map((m) =>
+      `<label><input type="checkbox" value="${esc(m)}" ${ticked.has(m) ? "checked" : ""}> ${esc(m)}</label>`).join("") : "";
+    return head + items;
+  }).join("");
+  $("#btn-bench").disabled = !s.llm.ok;
+
+  if (!bench.testset) {
+    try { bench.testset = await api("/api/bench/testset"); } catch (_) { bench.testset = { items: [], context: "" }; }
+    $("#bench-testset").innerHTML = bench.testset.items.map((it) => {
+      const wrong = it.text !== it.expected;
+      return `<li>${wrong ? `<del>${esc(it.text)}</del> → <ins>${esc(it.expected)}</ins>` : esc(it.text)} <span class="kind">(${esc(it.kind)})</span></li>`;
+    }).join("");
+  }
+
+  // test source: built-in set or the subtitles of a recent job
+  let jobsList = [];
+  try { jobsList = (await api("/api/jobs")).filter((j) => j.cues > 0); } catch (_) {}
+  const sel = $("#bench-source");
+  const cur = sel.value || "builtin";
+  sel.innerHTML = `<option value="builtin">ชุดทดสอบมาตรฐาน (${bench.testset.items.length} ท่อน, มีเฉลย)</option>` +
+    jobsList.map((j) => `<option value="${j.id}">ซับจาก ${esc(j.filename || j.id)} (${j.cues} ท่อน, ไม่มีเฉลย)</option>`).join("");
+  sel.value = [...sel.options].some((o) => o.value === cur) ? cur : "builtin";
+  if (!bench.inited) $("#bench-context").value = bench.testset.context;
+  bench.inited = true;
+  loadBenchHistory();
+}
+
+$("#bench-source").addEventListener("change", async () => {
+  const v = $("#bench-source").value;
+  if (v === "builtin") { $("#bench-context").value = bench.testset.context; return; }
+  try { $("#bench-context").value = (await api(`/api/jobs/${v}`)).hint || ""; } catch (_) {}
+});
+
+$("#btn-bench").addEventListener("click", async () => {
+  const models = [...document.querySelectorAll("#bench-models input:checked")].map((i) => i.value);
+  if (!models.length) return toast("เลือกโมเดลอย่างน้อย 1 ตัว", true);
+  if (models.length > 8) return toast("เลือกได้สูงสุด 8 ตัว", true);
+  try {
+    const run = await api("/api/bench", { json: { models, source: $("#bench-source").value, context: $("#bench-context").value } });
+    history.replaceState(null, "", `#bench=${run.id}`);
+    setBench(run);
+  } catch (e) { toast(e.message, true); }
+});
+
+async function openBench(id) {
+  try { setBench(await api(`/api/jobs/${id}`)); } catch (e) { toast(e.message, true); }
+}
+
+function setBench(run) {
+  if (run.now) clockSkew = run.now - Date.now() / 1000;
+  bench.run = run;
+  const t = run.task || {};
+  const running = t.state === "queued" || t.state === "running";
+  $("#btn-bench").disabled = running || !(state.sys && state.sys.llm.ok);
+  if (t.name) paintTask($("#task-bench"), t);
+  renderBenchResults(run);
+  clearTimeout(bench.timer);
+  if (running) {
+    bench.timer = setTimeout(async () => {
+      try { setBench(await api(`/api/jobs/${run.id}`)); } catch (_) { setBench(run); }
+    }, 1000);
+  } else {
+    loadBenchHistory();
+  }
+}
+
+function renderBenchResults(run) {
+  const results = run.results || {};
+  const models = run.models.filter((m) => results[m]);
+  show("#bench-results", models.length > 0);
+  if (!models.length) return;
+  const keyed = run.items.every((it) => "expected" in it);
+  $("#bench-meta").textContent = `${run.source_name} · ${run.items.length} ท่อน` + (run.context ? ` · บริบท: ${run.context}` : "");
+
+  // summary: best score first, then fastest
+  const rows = models.map((m) => ({ m, r: results[m] }));
+  rows.sort((a, b) => (b.r.ok - a.r.ok) || ((b.r.score?.score ?? 0) - (a.r.score?.score ?? 0)) || ((a.r.wall_s ?? 1e9) - (b.r.wall_s ?? 1e9)));
+  const best = rows.find((x) => x.r.ok);
+  const head = keyed
+    ? "<tr><th>โมเดล</th><th>คะแนน</th><th>แก้ถูก<span class=sub>ผิด · เกิน</span></th><th>เวลา<span class=sub>tok/s</span></th></tr>"
+    : "<tr><th>โมเดล</th><th>แนะนำแก้</th><th>ถูกตัดทิ้ง</th><th>เวลา<span class=sub>tok/s</span></th></tr>";
+  $("#bench-summary").innerHTML = head + rows.map(({ m, r }) => {
+    const notes = [];
+    if (r.stats?.load_s >= 0.5) notes.push(`โหลดโมเดล ${r.stats.load_s} วิ`);
+    if (r.stats?.thinking) notes.push("คิดก่อนตอบ");
+    if (r.attempts > 1) notes.push(`ตอบผิดรูปแบบ ${r.attempts - 1} ครั้ง (ลองใหม่แล้วผ่าน)`);
+    if (r.rejected_rewrites) notes.push(`ถูกตัดทิ้ง ${r.rejected_rewrites} (เขียนใหม่เกิน)`);
+    const name = `${best && best.m === m && rows.length > 1 ? "🏆 " : ""}${esc(m)}${notes.length ? `<span class="sub">${esc(notes.join(" · "))}</span>` : ""}`;
+    if (!r.ok) return `<tr><td>${name}</td><td class="err" colspan="3">❌ ${esc(r.error || "ล้มเหลว")}</td></tr>`;
+    const time = `${r.wall_s} วิ`;
+    const tps = r.stats?.tokens_per_s || "–";
+    if (keyed) {
+      const sc = r.score;
+      return `<tr class="${best && best.m === m ? "best" : ""}"><td>${name}</td>
+        <td><b>${sc.score}</b><span class="score-bar"><i style="width:${sc.score}%"></i></span></td>
+        <td>${sc.fixed}/${sc.errors}<span class="sub">${sc.wrong_edits ?? 0} · ${sc.over_edits}</span></td><td>${time}<span class="sub">${tps}</span></td></tr>`;
+    }
+    return `<tr><td>${name}</td><td>${r.suggestions.length}</td><td>${r.rejected_rewrites || 0}</td><td>${time}<span class="sub">${tps}</span></td></tr>`;
+  }).join("");
+
+  // per cue: what each model ended up with
+  const norm = (x) => (x || "").replace(/\s+/g, "");
+  $("#bench-cues").innerHTML = run.items.map((it) => {
+    const per = models.map((m) => {
+      const r = results[m];
+      if (!r.ok) return `<li class="bad"><span class="m">${esc(m)}</span><span class="r">–</span></li>`;
+      const fin = r.finals[String(it.id)] ?? it.text;
+      const changed = norm(fin) !== norm(it.text);
+      let cls, label;
+      if (keyed) {
+        const good = norm(fin) === norm(it.expected);
+        cls = good ? "ok" : "bad";
+        label = (good ? "✓ " : "✗ ") + (changed ? fin : "ไม่แก้") + (!good && changed && it.text !== it.expected ? " (แก้ผิด)" : "");
+      } else {
+        cls = changed ? "changed" : "same";
+        label = changed ? "✎ " + fin : "ไม่แก้";
+      }
+      return `<li class="${cls}"><span class="m">${esc(m)}</span><span class="r">${esc(label)}</span></li>`;
+    }).join("");
+    return `<li class="bench-cue">
+      <div class="head"><span>#${it.id}</span><span>${esc(it.kind || "")}</span></div>
+      <div class="orig">${esc(it.text)}</div>
+      ${keyed && it.expected !== it.text ? `<div class="expect">เฉลย: ${esc(it.expected)}</div>` : ""}
+      ${keyed && it.expected === it.text ? `<div class="expect">เฉลย: ถูกอยู่แล้ว ไม่ต้องแก้</div>` : ""}
+      <ul>${per}</ul>
+    </li>`;
+  }).join("");
+}
+
+async function loadBenchHistory() {
+  try {
+    const list = await api("/api/bench");
+    $("#bench-history").innerHTML = list.length
+      ? list.map((r) => `<li><a href="#bench=${r.id}">${esc(r.models.join(", "))}</a><span>${esc(r.source_name || "")} · ${new Date(r.created * 1000).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}${r.state === "running" || r.state === "queued" ? " ⏳" : ""}</span></li>`).join("")
+      : `<li><span>ยังไม่เคยทดสอบ</span></li>`;
+  } catch (_) {}
+}
+
 // ---------- boot ----------
 
 window.addEventListener("hashchange", () => {
+  const b = location.hash.match(/bench(?:=([a-z0-9]+))?/);
+  if (b) { showView("bench"); if (b[1] && (!bench.run || bench.run.id !== b[1])) openBench(b[1]); return; }
   const m = location.hash.match(/job=([a-z0-9]+)/);
-  if (m && (!state.job || state.job.id !== m[1])) openJob(m[1]);
+  if (m && (!state.job || state.job.id !== m[1])) { showView("edit"); openJob(m[1]); }
 });
 window.addEventListener("beforeunload", () => { if (state.dirty) flushSave(); });
 
 (async function boot() {
   await loadSystem();
   loadRecent();
+  const b = location.hash.match(/bench(?:=([a-z0-9]+))?/);
+  if (b) {
+    showView("bench");
+    if (b[1]) openBench(b[1]);
+    return;
+  }
   const m = location.hash.match(/job=([a-z0-9]+)/);
   if (m && state.sys) openJob(m[1]);
 })();

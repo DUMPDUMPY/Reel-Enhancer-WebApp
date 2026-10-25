@@ -11,9 +11,13 @@
 <header class="top">
   <h1>🎬 Reel Enhancer</h1>
   <div class="chips" id="chips"></div>
+  <nav class="tabs">
+    <button class="tab on" data-view="edit">🎬 ทำคลิป</button>
+    <button class="tab" data-view="bench">🧪 ทดสอบโมเดล</button>
+  </nav>
 </header>
 
-<main>
+<main id="view-edit">
   <!-- Step 1: upload -->
   <section class="card" id="step-upload">
     <h2><span class="num">1</span> อัปโหลดคลิป</h2>
@@ -41,8 +45,8 @@
       <label class="field grow"><span>โมเดลถอดเสียง</span><select id="model"></select></label>
     </div>
     <label class="switch"><input type="checkbox" id="vad" checked><span>ตัดช่วงที่มีแต่เพลง/เงียบ (VAD)</span></label>
-    <label class="switch"><input type="checkbox" id="proofread"><span>ให้ Ollama ช่วยตรวจคำผิด</span></label>
-    <label class="field hidden" id="ollama-model-wrap"><span>โมเดล Ollama</span><select id="ollama-model"></select></label>
+    <label class="switch"><input type="checkbox" id="proofread"><span>ให้ AI ช่วยตรวจคำผิด</span></label>
+    <label class="field hidden" id="llm-model-wrap"><span>โมเดลตรวจคำ (ในเครื่อง หรือ API)</span><select id="llm-model"></select></label>
     <button class="btn primary" id="btn-transcribe">1. ถอดเสียงจับเวลา</button>
     <div class="task hidden" id="task-transcribe">
       <div class="task-head"><span class="msg"></span><span class="task-meta"><b class="pct"></b> · <span class="total-time"></span></span></div>
@@ -62,7 +66,7 @@
 
     <div class="suggestions hidden" id="suggestions">
       <div class="sg-head">
-        <strong>🤖 Ollama แนะนำแก้คำ</strong>
+        <strong>🤖 AI แนะนำแก้คำ</strong>
         <button class="btn small" id="btn-accept-all">ยอมรับทั้งหมด</button>
       </div>
       <ul id="sg-list"></ul>
@@ -130,6 +134,38 @@
       <p class="meta" id="result-meta"></p>
     </div>
     <details class="log hidden" id="log-box"><summary>ดู log FFmpeg</summary><pre id="log"></pre></details>
+  </section>
+</main>
+
+<main id="view-bench" class="hidden">
+  <section class="card">
+    <h2>🧪 เปรียบเทียบโมเดลตรวจคำ</h2>
+    <p class="note">ส่งข้อความชุดเดียวกันให้แต่ละโมเดล (Ollama ในเครื่อง หรือ API ที่ใส่ key ไว้) ตรวจคำผิดทีละตัว แล้วเทียบคะแนน เวลา และความเร็วบนเครื่องจริง
+      ชุดทดสอบมาตรฐานมีทั้งคำที่ต้องแก้ และภาษาพูดที่ห้ามแก้</p>
+    <div class="field"><span>เลือกโมเดล (ได้สูงสุด 8 ตัว)</span><div class="checks" id="bench-models"></div></div>
+    <label class="field"><span>ข้อความที่ใช้ทดสอบ</span><select id="bench-source"></select></label>
+    <label class="field"><span>บริบท / ชื่อเฉพาะ</span><input id="bench-context"></label>
+    <details class="testset"><summary>ดูชุดทดสอบมาตรฐาน</summary><ol id="bench-testset"></ol></details>
+    <button class="btn primary" id="btn-bench">เริ่มทดสอบ</button>
+    <div class="task hidden" id="task-bench">
+      <div class="task-head"><span class="msg"></span><span class="task-meta"><b class="pct"></b> · <span class="total-time"></span></span></div>
+      <div class="progress"><div></div></div>
+      <ol class="nodes"></ol>
+      <p class="task-error hidden"></p>
+    </div>
+  </section>
+
+  <section class="card hidden" id="bench-results">
+    <h2>📊 ผลการทดสอบ</h2>
+    <p class="note" id="bench-meta"></p>
+    <div class="table-wrap"><table class="bench-table" id="bench-summary"></table></div>
+    <h3>รายท่อน</h3>
+    <ol class="bench-cues" id="bench-cues"></ol>
+  </section>
+
+  <section class="card">
+    <h2>🕘 ประวัติการทดสอบ</h2>
+    <ul class="history" id="bench-history"></ul>
   </section>
 </main>
 

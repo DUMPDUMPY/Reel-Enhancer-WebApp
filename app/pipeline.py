@@ -6,8 +6,8 @@ Every task is a chain of nodes (see jobs.step); the phone draws them live.
 import json
 import time
 
-from app import config, jobs
-from app.services import media, proofreader, renderer, subtitles, transcriber
+from app import jobs
+from app.services import llm, media, proofreader, renderer, stt_cloud, subtitles, transcriber
 from app.services.segmenter import build_cues
 from app.services.thai_text import parse_hint_words
 
@@ -16,9 +16,9 @@ TRANSCRIBE_NODES = [
     ("extract", "แยกเสียงจากคลิป", "CPU", 0.05),
     ("whisper", "AI ฟังเสียงพูด", "iGPU", 0.75),
     ("segment", "จัดท่อน 1–2 บรรทัด", "CPU", 0.05),
-    ("proofread", "Ollama ตรวจคำผิด", "Ollama", 0.15),
+    ("proofread", "AI ตรวจคำผิด", "LLM", 0.15),
 ]
-PROOFREAD_NODES = [("proofread", "Ollama ตรวจคำผิด", "Ollama", 1.0)]
+PROOFREAD_NODES = [("proofread", "AI ตรวจคำผิด", "LLM", 1.0)]
 RENDER_NODES = [
     ("ass", "สร้างไฟล์ซับ .ass", "CPU", 0.02),
     ("hw", "ตรวจ iGPU", "iGPU", 0.03),
@@ -29,7 +29,7 @@ RENDER_NODES = [
 VARIANT_LABEL = {"gpu": "iGPU (VAAPI)", "gpu-swdec": "iGPU (ถอดรหัสด้วย CPU)", "cpu": "CPU (libx264)"}
 
 
-def transcribe_task(job_id: str, model: str | None, vad: bool, proofread: bool, ollama_model: str | None) -> None:
+def transcribe_task(job_id: str, model: str | None, vad: bool, proofread: bool, llm_model: str | None) -> None:
     job = jobs.load(job_id)
     d = jobs.job_dir(job_id)
     hint = job.get("hint", "")
@@ -41,29 +41,44 @@ def transcribe_task(job_id: str, model: str | None, vad: bool, proofread: bool, 
     with jobs.step(job_id, "extract"):
         wav = media.extract_audio(d / job["source"], d / "audio.wav")
 
-    with jobs.step(job_id, "whisper", (model or transcriber.current_model()).removeprefix("ggml-").removesuffix(".bin")):
-        result = transcriber.transcribe(wav, hint=hint, model=model, vad=vad)
-        (d / "whisper.json").write_text(json.dumps(result, ensure_ascii=False))
+    if stt_cloud.is_cloud(model):
+        # Cloud STT: nothing runs on the NAS for this step.
+        used_model = model
+        jobs.step_update(job_id, "whisper", device="Cloud")
+        with jobs.step(job_id, "whisper", model):
+            result = stt_cloud.transcribe(wav, hint=hint, model=model)
+            (d / "whisper.json").write_text(json.dumps(result, ensure_ascii=False))
+    else:
+        with jobs.step(job_id, "whisper", (model or transcriber.current_model()).removeprefix("ggml-").removesuffix(".bin")):
+            result = transcriber.transcribe(wav, hint=hint, model=model, vad=vad)
+            (d / "whisper.json").write_text(json.dumps(result, ensure_ascii=False))
+        used_model = transcriber.current_model()
 
     with jobs.step(job_id, "segment"):
         cues = build_cues(result, parse_hint_words(hint))
         jobs.step_update(job_id, "segment", detail=f"{len(cues)} ท่อน")
     jobs.update(
         job_id, cues=cues, suggestions=[], proofread_error="",
-        transcribe_meta={"model": transcriber.current_model(), "seconds": round(time.time() - t0, 1), "vad": vad},
+        transcribe_meta={"model": used_model, "seconds": round(time.time() - t0, 1), "vad": vad},
     )
 
     if not proofread or not cues:
         jobs.step_update(job_id, "proofread", "skipped", detail="ปิดไว้" if not proofread else "ไม่มีซับ")
         return
-    _proofread(job_id, cues, hint, ollama_model)
+    _proofread(job_id, cues, hint, llm_model)
 
 
-def _proofread(job_id: str, cues: list[dict], hint: str, ollama_model: str | None) -> None:
-    # Proofreading is a bonus: if Ollama is down or answers badly, keep the transcript.
-    jobs.step_update(job_id, "proofread", "running", 0.0, ollama_model or config.OLLAMA_MODEL)
+def device_label(model_ref: str) -> str:
+    """Node badge: "Ollama" for the local model, "Cloud" for an API."""
+    return "Ollama" if llm.split_ref(model_ref)[0].is_ollama else "Cloud"
+
+
+def _proofread(job_id: str, cues: list[dict], hint: str, llm_model: str | None) -> None:
+    # Proofreading is a bonus: if the LLM is down or answers badly, keep the transcript.
+    model = llm_model or llm.default_model()
+    jobs.step_update(job_id, "proofread", "running", 0.0, model, device=device_label(model))
     try:
-        suggestions = proofreader.proofread(cues, hint, ollama_model)
+        suggestions = proofreader.proofread(cues, hint, model)
     except Exception as e:
         jobs.update(job_id, suggestions=[], proofread_error=f"ตรวจคำผิดไม่สำเร็จ: {e}")
         jobs.step_update(job_id, "proofread", "warn", detail="ไม่สำเร็จ ข้ามไป (ซับยังอยู่ครบ)")
@@ -72,9 +87,9 @@ def _proofread(job_id: str, cues: list[dict], hint: str, ollama_model: str | Non
     jobs.step_update(job_id, "proofread", "done", detail=f"แนะนำแก้ {len(suggestions)} จุด" if suggestions else "ไม่พบคำผิด")
 
 
-def proofread_task(job_id: str, ollama_model: str | None) -> None:
+def proofread_task(job_id: str, llm_model: str | None) -> None:
     job = jobs.load(job_id)
-    _proofread(job_id, job.get("cues") or [], job.get("hint", ""), ollama_model)
+    _proofread(job_id, job.get("cues") or [], job.get("hint", ""), llm_model)
 
 
 def render_task(job_id: str) -> None:

@@ -27,6 +27,13 @@ FFmpeg enhance + burn subtitles at 1080×1920 → download. User-facing text is 
 - `app/services/` — `transcriber` (whisper HTTP), `segmenter` (whisper JSON → cues),
   `thai_text` (width + wrapping), `proofreader` (Ollama), `subtitles` (.ass/.vtt),
   `renderer` (FFmpeg commands, iGPU capability probe, fallbacks), `media` (ffprobe).
+- `app/services/llm.py` — proofreading LLM providers: Ollama + OpenAI-compatible APIs keyed by env
+  (`ZAI_API_KEY`, `TYPHOON_API_KEY`, `OPENROUTER_API_KEY`, `GEMINI_API_KEY`, `CUSTOM_LLM_*`).
+  Model refs are `provider:model`; a name without a known prefix is an Ollama model.
+  Cloud JSON mode is `json_object` (no schema), so validation + one retry in `proofreader` matter.
+- `app/bench.py` — proofreading model comparison (Ollama and cloud). Runs are stored as jobs with `kind: "bench"`
+  (excluded from `/api/jobs`), one node per model; built-in test set has an answer key.
+  If you change the proofreading prompt or validation, re-check scores here.
 - `app/static/` — vanilla HTML/CSS/JS, no build step, no CDN (must work offline on the LAN).
 
 ## Rules that are easy to break
@@ -45,6 +52,23 @@ FFmpeg enhance + burn subtitles at 1080×1920 → download. User-facing text is 
   `-low_power 1` for H.264 — the probe decides, don't hard-code it.
 - Output spec: 1080×1920, H.264 High, 30 fps, VBR 12M / max 15M, AAC 192k, `+faststart`, bt709 tags.
 - Never stretch: non-9:16 sources are padded or cropped (`RenderOptions.fit`).
+
+- `app/services/stt_cloud.py` — ElevenLabs Scribe STT (`ELEVENLABS_API_KEY`), output converted to
+  whisper verbose_json so `segmenter` is shared. Picked when the model id starts with `elevenlabs:`.
+
+## Testing with real API keys (pending)
+
+Keys are provided only as environment variables/secrets, never in chat: `ZAI_API_KEY`,
+`ELEVENLABS_API_KEY`. Not yet verified against the live APIs:
+1. Proofreading: run the app locally with `ZAI_API_KEY`, open the "ทดสอบโมเดล" tab and compare
+   `zai:glm-4.7-flash` / `zai:glm-4.5-flash` on the built-in test set (check thinking is off and
+   JSON comes back complete). Reference scores on the same set, CPU Ollama: sailor2:8b 62,
+   gemma3:4b 50, Typhoon 2.5 4B 50, Typhoon 2.1 4B 38, qwen2.5:3b 0 (wrong edits).
+2. Speech-to-text: there is no Thai test audio in the repo. Generate it with ElevenLabs TTS
+   (`POST /v1/text-to-speech/{voice_id}`, multilingual model) from the test-set sentences, then
+   transcribe with `elevenlabs:scribe_v2` and compare timing/text with whisper.cpp
+   (`ggml-large-v3-q5_0.bin` from Hugging Face; build whisper-server per `docker/whisper/Dockerfile`).
+3. Confirm Scribe's `language_code` "th" and `keyterms` are accepted for Thai.
 
 ## Commands
 
