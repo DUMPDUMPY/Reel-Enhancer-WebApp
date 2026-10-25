@@ -1,0 +1,34 @@
+# Changelog
+
+All notable changes to this project are documented here.
+Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+## [Unreleased]
+
+### Added
+- Live **node progress** for every task: each step (extract audio, Whisper, segmenting,
+  Ollama, .ass, iGPU check, render, save) shows its state, device (CPU / iGPU / Ollama),
+  detail, per-step progress and a live elapsed timer; render fallback from iGPU to CPU is
+  shown on the node.
+- Ollama failures are shown as a warning node; the transcript is kept and the job still finishes.
+- `CLAUDE.md` with project context and rules for AI-assisted development.
+
+### Changed
+- Job API returns `task.steps` and the server time (`now`) so the phone can show accurate timers.
+
+## [0.1.0] - 2026-10-25
+
+### Added
+- Mobile-first web UI (FastAPI + vanilla JS): upload, hint words, live subtitle preview on the
+  video, cue editor (text, timing, add/delete), style picker (font, size, colours, outline,
+  box, bottom margin), render options (pad/crop, sharpen, denoise), download Master MP4.
+- Speech-to-text with whisper.cpp server built for **Vulkan** (Intel iGPU), default model
+  `ggml-large-v3-q5_0`, Silero VAD, models auto-downloaded to `./models`; switch models from the UI.
+- Thai segmentation with PyThaiNLP: 1–2 line cues that never break inside a word or a hint
+  name; filter for Whisper hallucinations over music/silence; token times remapped for VAD.
+- Optional Ollama proofreading with JSON-schema output, validated and offered as suggestions.
+- FFmpeg rendering on the iGPU via VAAPI (decode, scale, denoise, sharpen, H.264 encode),
+  rotation and HDR handling, capability probe and automatic libx264 fallback.
+- Output for Facebook Reels / TikTok: 1080×1920, H.264 High, 30 fps, 12–15 Mbps, AAC 192k.
+- Docker Compose project for Synology DSM Container Manager; Kanit, Prompt and Sarabun fonts.
+- Test suite including a real CPU render and the full API flow.
