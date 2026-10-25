@@ -67,3 +67,25 @@ def test_typhoon_bare_list_models(monkeypatch):
         200, json=data, request=httpx.Request("GET", url)))
     info = llm._list_models(p)
     assert info["ok"] and info["models"] == ["typhoon-v2.5-30b-a3b-instruct"]  # OCR/ASR models filtered out
+
+
+def test_zai_model_that_always_thinks_is_retried_with_effort(monkeypatch):
+    p = llm.PROVIDERS["zai"]
+    monkeypatch.setattr(p, "api_key", "secret")
+    monkeypatch.setattr(p, "always_think", set())
+    bodies = []
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        bodies.append(json)
+        req = httpx.Request("POST", url)
+        if json["thinking"] == {"type": "disabled"}:
+            return httpx.Response(400, json={"error": {"code": "1210", "message": "always thinks"}}, request=req)
+        return httpx.Response(200, json={"choices": [{"message": {"content": '{"items": []}', "reasoning_content": "..."}}]},
+                              request=req)
+
+    monkeypatch.setattr(llm.httpx, "post", fake_post)
+    answer, stats = llm.chat_json("zai:glm-5.3-flash", "s", "u", {}, 30)
+    assert answer == {"items": []} and stats["thinking"]
+    assert bodies[1]["thinking"] == {"type": "enabled"} and bodies[1]["reasoning_effort"] == "max"
+    llm.chat_json("zai:glm-5.3-flash", "s", "u", {}, 30)
+    assert len(bodies) == 3  # remembered: no second refusal
