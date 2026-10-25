@@ -54,9 +54,13 @@ def test_testset_has_errors_and_clean_lines():
     assert sum(it["text"] == it["expected"] for it in items) >= 4
 
 
+UNLOADED = []
+
+
 @pytest.fixture
 def client(monkeypatch):
     monkeypatch.setattr(proofreader, "ask", fake_ask)
+    monkeypatch.setattr(proofreader, "unload", UNLOADED.append)
     with TestClient(main.app) as c:
         yield c
 
@@ -73,6 +77,7 @@ def wait(client, jid, timeout=30):
 
 def test_bench_run_compares_models(client):
     CALLS.clear()
+    UNLOADED.clear()
     r = client.post("/api/bench", json={"models": ["good", "lazy", "broken", "rewriter", "missing", "flaky"]})
     assert r.status_code == 200, r.text
     run = wait(client, r.json()["id"])
@@ -81,6 +86,7 @@ def test_bench_run_compares_models(client):
     assert res["good"]["score"]["score"] == 100
     assert res["lazy"]["score"]["score"] == 0
     assert res["broken"]["ok"] is False and "ไม่ครบ" in res["broken"]["error"]
+    assert UNLOADED == ["good", "lazy", "broken", "rewriter", "missing", "flaky"]  # freed after each model
     assert CALLS["broken"] == 2                    # retried once before giving up
     assert res["flaky"]["ok"] and res["flaky"]["attempts"] == 2 and res["flaky"]["score"]["score"] == 100
     assert res["flaky"]["failed_answers"][0]["answer"] == [{"id": 1, "text": "x"}]

@@ -93,6 +93,18 @@ def ask(items: list[dict], context: str = "", model: str | None = None) -> tuple
     return (answer.get("items", []) if isinstance(answer, dict) else []), stats
 
 
+def unload(model: str) -> None:
+    """Free the model's memory now instead of after Ollama's keep-alive (5 min).
+
+    Used between models when comparing, so several models are never resident at
+    once (on the NAS the iGPU shares system RAM).
+    """
+    try:
+        httpx.post(f"{config.OLLAMA_HOST}/api/generate", json={"model": model, "keep_alive": 0}, timeout=30)
+    except httpx.HTTPError:
+        pass
+
+
 def ask_validated(items: list[dict], context: str = "", model: str | None = None, retries: int = 1) -> dict:
     """ask() + validate(), retrying when the answer is malformed.
 

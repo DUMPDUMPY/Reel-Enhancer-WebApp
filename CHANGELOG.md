@@ -20,6 +20,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Ollama answers that drop or merge items are retried once (`proofreader.ask_validated`),
   in both proofreading and the comparison page; failed raw answers are kept in bench results.
+- The comparison page unloads each model right after testing it (`keep_alive: 0`), so several
+  models are never in memory at once (a 12B model was OOM-killed without this).
 - Comparison score now also subtracts "wrong edits" (an error changed into a different error).
 
 ### Changed

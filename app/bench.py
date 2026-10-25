@@ -98,6 +98,8 @@ def bench_task(job_id: str) -> None:
             res = run_one(items, context, model)
         except Exception as e:
             res = {"ok": False, "error": str(e)[-300:]}
+        finally:
+            proofreader.unload(model)
         with jobs.edit(job_id) as j:
             j.setdefault("results", {})[model] = res
         if not res["ok"]:
