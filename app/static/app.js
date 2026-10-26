@@ -147,15 +147,57 @@ $("#btn-upload").addEventListener("click", () => {
   xhr.send(fd);
 });
 
+function fmtSize(bytes) {
+  return bytes >= 1e9 ? (bytes / 1e9).toFixed(1) + " GB" : Math.max(bytes / 1e6, 0.1).toFixed(1) + " MB";
+}
+
+const delBtn = (j) => j.busy ? "" : `<button class="btn icon" data-del="${j.id}" title="ลบงานนี้" aria-label="ลบงานนี้">🗑</button>`;
+
+let recentJobs = [];
 async function loadRecent() {
   try {
-    const list = await api("/api/jobs");
-    show("#recent-box", list.length > 0);
-    $("#recent").innerHTML = list.map((j) =>
-      `<li><a href="#job=${j.id}">${esc(j.filename || j.id)}</a><span>${new Date(j.created * 1000).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}${j.has_output ? " ✅" : ""}</span></li>`
+    recentJobs = await api("/api/jobs");
+    show("#recent-box", recentJobs.length > 0);
+    const total = recentJobs.reduce((n, j) => n + (j.size || 0), 0);
+    $("#recent-summary").textContent = `งานล่าสุด (${recentJobs.length} งาน · ${fmtSize(total)})`;
+    $("#recent").innerHTML = recentJobs.map((j) =>
+      `<li><a href="#job=${j.id}">${esc(j.filename || j.id)}</a><span>${new Date(j.created * 1000).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}${j.has_output ? " ✅" : ""} · ${fmtSize(j.size || 0)}</span>${delBtn(j)}</li>`
     ).join("");
   } catch (_) {}
 }
+
+// Deleting removes the whole job folder (clip, audio, rendered MP4) to free disk space.
+async function deleteJobs(ids) {
+  let failed = 0;
+  for (const id of ids) {
+    try { await api(`/api/jobs/${id}`, { method: "DELETE" }); } catch (_) { failed++; }
+  }
+  if (failed) toast(`ลบไม่สำเร็จ ${failed} งาน (อาจกำลังทำงานอยู่)`, true);
+  const openId = (state.job && state.job.id) || (bench.run && bench.run.id);
+  if (ids.includes(openId)) {
+    history.replaceState(null, "", location.hash.startsWith("#bench") ? "#bench" : location.pathname);
+    location.reload();
+    return;
+  }
+  loadRecent();
+  loadBenchHistory();
+}
+
+$("#recent").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-del]");
+  if (!b) return;
+  const j = recentJobs.find((x) => x.id === b.dataset.del);
+  if (!confirm(`ลบงาน "${(j && j.filename) || b.dataset.del}" ทั้งคลิปต้นฉบับและไฟล์ที่เรนเดอร์แล้ว?`)) return;
+  deleteJobs([b.dataset.del]);
+});
+
+$("#btn-delete-all").addEventListener("click", () => {
+  const ids = recentJobs.filter((j) => !j.busy).map((j) => j.id);
+  if (!ids.length) return;
+  const total = recentJobs.filter((j) => !j.busy).reduce((n, j) => n + (j.size || 0), 0);
+  if (!confirm(`ลบงานทั้งหมด ${ids.length} งาน (${fmtSize(total)})? กู้คืนไม่ได้`)) return;
+  deleteJobs(ids);
+});
 
 async function openJob(id) {
   try {
@@ -827,10 +869,15 @@ async function loadBenchHistory() {
   try {
     const list = await api("/api/bench");
     $("#bench-history").innerHTML = list.length
-      ? list.map((r) => `<li><a href="#bench=${r.id}">${esc(r.models.join(", "))}</a><span>${esc(r.source_name || "")} · ${new Date(r.created * 1000).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}${r.state === "running" || r.state === "queued" ? " ⏳" : ""}</span></li>`).join("")
+      ? list.map((r) => `<li><a href="#bench=${r.id}">${esc(r.models.join(", "))}</a><span>${esc(r.source_name || "")} · ${new Date(r.created * 1000).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" })}${r.busy ? " ⏳" : ""}</span>${delBtn(r)}</li>`).join("")
       : `<li><span>ยังไม่เคยทดสอบ</span></li>`;
   } catch (_) {}
 }
+
+$("#bench-history").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-del]");
+  if (b && confirm("ลบผลทดสอบนี้?")) deleteJobs([b.dataset.del]);
+});
 
 // ---------- boot ----------
 

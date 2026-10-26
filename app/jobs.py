@@ -224,6 +224,18 @@ def cleanup_old() -> int:
     return removed
 
 
+def dir_size(job_id: str) -> int:
+    """Bytes on disk for one job (source, audio, renders), shown next to its delete button."""
+    total = 0
+    for p in job_dir(job_id).rglob("*"):
+        try:
+            if p.is_file():
+                total += p.stat().st_size
+        except OSError:
+            continue
+    return total
+
+
 def list_recent(limit: int = 20) -> list[dict]:
     jobs = []
     if config.JOBS_DIR.is_dir():

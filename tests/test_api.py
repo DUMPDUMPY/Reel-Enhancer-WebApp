@@ -3,7 +3,7 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from app import main
+from app import jobs, main
 from app.services import transcriber
 from tests.test_render import make_clip
 
@@ -140,3 +140,14 @@ def test_retry_without_vad_when_vad_finds_nothing(monkeypatch, tmp_path):
     assert job["cues"] and job["transcribe_meta"]["vad"] is False
     node = next(s for s in job["task"]["steps"] if s["key"] == "whisper")
     assert node["state"] == "done" and "ไม่ใช้ VAD" in node["detail"]
+
+
+def test_list_shows_size_and_delete_frees_it(client, tmp_path):
+    src = make_clip(tmp_path / "clip.mp4", size="720x1280")
+    with src.open("rb") as f:
+        jid = client.post("/api/jobs", files={"file": ("clip.mp4", f, "video/mp4")}).json()["id"]
+    row = next(j for j in client.get("/api/jobs").json() if j["id"] == jid)
+    assert row["size"] > 0 and row["busy"] is False
+    assert client.delete(f"/api/jobs/{jid}").json() == {"ok": True}
+    assert jid not in [j["id"] for j in client.get("/api/jobs").json()]
+    assert not jobs.job_dir(jid).exists()

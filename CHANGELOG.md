@@ -21,6 +21,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   ship empty `data/` and `models/` folders, which must exist before the first start.
 
 ### Added
+- **Delete jobs** from the recent-jobs list (🗑 per job, or "ลบงานทั้งหมด") to free disk space; each job
+  shows its size on disk and the list header shows the total. Comparison runs can be deleted too.
 - **Speech-to-text via ElevenLabs Scribe** (`ELEVENLABS_API_KEY`): `elevenlabs:scribe_v2` appears in
   the model list; word timestamps are converted to the Whisper shape so segmenting, editing and
   rendering are unchanged. Hint words are sent as `keyterms` (`ELEVENLABS_KEYTERMS=0` to disable).
