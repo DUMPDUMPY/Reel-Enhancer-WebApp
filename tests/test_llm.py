@@ -86,7 +86,7 @@ def test_zai_model_that_always_thinks_is_retried_with_effort(monkeypatch):
     monkeypatch.setattr(llm.httpx, "post", fake_post)
     answer, stats = llm.chat_json("zai:glm-6-flash", "s", "u", {}, 30)
     assert answer == {"items": []} and stats["thinking"]
-    assert bodies[1]["thinking"] == {"type": "enabled"} and bodies[1]["reasoning_effort"] == "max"
+    assert bodies[1]["thinking"] == {"type": "enabled"} and bodies[1]["reasoning_effort"] == "high"
     llm.chat_json("zai:glm-6-flash", "s", "u", {}, 30)
     assert len(bodies) == 3  # remembered: no second refusal
 
@@ -95,6 +95,6 @@ def test_glm53_gets_reasoning_effort_up_front(monkeypatch):
     # The Coding Plan endpoint silently ignores thinking=disabled, so no 1210 refusal arrives.
     p = llm.PROVIDERS["zai"]
     monkeypatch.setattr(p, "always_think", set())
-    assert p.body_for("glm-5.3-flash")["reasoning_effort"] == "max"
+    assert p.body_for("glm-5.3-flash")["reasoning_effort"] == "high"
     assert p.body_for("glm-5.3")["thinking"] == {"type": "enabled"}
     assert p.body_for("glm-4.7-flash") == {"thinking": {"type": "disabled"}}

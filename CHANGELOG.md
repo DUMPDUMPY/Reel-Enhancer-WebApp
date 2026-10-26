@@ -6,6 +6,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Fixed
+- After an update the phone could keep showing the old page (e.g. no delete buttons) from its cache:
+  the page, JS and CSS are now served with `Cache-Control: no-cache`.
+- GLM 5.3 `reasoning_effort` default `max` → `high` (same bench score, fewer tokens per call).
 - Proofreading a long clip (e.g. a 3-minute song, ~40 cues) with an 8B Ollama model timed out after
   2 minutes. Cues are now sent in batches of `PROOFREAD_BATCH` (10) with per-batch progress on the
   node; a failed batch is skipped instead of losing the whole result. `OLLAMA_TIMEOUT` default 120 → 300 s per batch.

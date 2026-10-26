@@ -86,7 +86,7 @@ curl http://<IP-NAS>:8000/api/system
 
 | ตัวแปร | ผู้ให้บริการ | ตัวอย่างโมเดล |
 |---|---|---|
-| `ZAI_API_KEY` | Z.AI (GLM) | `zai:glm-5.3` (แนะนำ, ตรวจถูก 100%), `zai:glm-5.3-flash` (ต้องใช้ key แบบ Coding Plan), `zai:glm-4.7-flash`, `zai:glm-4.5-flash` (ฟรี) · `ZAI_MODELS=` กำหนดรายการเอง · ค่าเริ่มต้นใช้ endpoint ของ Coding Plan ถ้าเป็น key แบบจ่ายตามใช้ ให้ตั้ง `ZAI_BASE_URL=https://api.z.ai/api/paas/v4` · `ZAI_REASONING_EFFORT` (low/high/max, ค่าเริ่มต้น max) สำหรับ GLM 5.3 ที่ปิด thinking ไม่ได้ |
+| `ZAI_API_KEY` | Z.AI (GLM) | `zai:glm-5.3` (แนะนำ, ตรวจถูก 100%), `zai:glm-5.3-flash` (ต้องใช้ key แบบ Coding Plan), `zai:glm-4.7-flash`, `zai:glm-4.5-flash` (ฟรี) · `ZAI_MODELS=` กำหนดรายการเอง · ค่าเริ่มต้นใช้ endpoint ของ Coding Plan ถ้าเป็น key แบบจ่ายตามใช้ ให้ตั้ง `ZAI_BASE_URL=https://api.z.ai/api/paas/v4` · `ZAI_REASONING_EFFORT` (low/high/max, ค่าเริ่มต้น high · max ใช้ token มากสุด) สำหรับ GLM 5.3 ที่ปิด thinking ไม่ได้ |
 | `TYPHOON_API_KEY` | opentyphoon.ai (โมเดลไทย) | `typhoon:typhoon-v2.5-30b-a3b-instruct` |
 | `OPENROUTER_API_KEY` + `OPENROUTER_MODELS` | OpenRouter | ตามที่ใส่ใน `OPENROUTER_MODELS` |
 | `GEMINI_API_KEY` | Google Gemini | `gemini:gemini-2.5-flash` |
