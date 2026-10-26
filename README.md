@@ -82,13 +82,13 @@ curl http://<IP-NAS>:8000/api/system
 
 | ตัวแปร | ผู้ให้บริการ | ตัวอย่างโมเดล |
 |---|---|---|
-| `ZAI_API_KEY` | Z.AI (GLM) | `zai:glm-4.7-flash`, `zai:glm-4.5-flash` (`ZAI_MODELS=` เพื่อกำหนดรายการเอง) |
+| `ZAI_API_KEY` | Z.AI (GLM) | `zai:glm-5.3` (แนะนำ, ตรวจถูก 100%), `zai:glm-5.3-flash` (ต้องใช้ key แบบ Coding Plan), `zai:glm-4.7-flash`, `zai:glm-4.5-flash` (ฟรี) · `ZAI_MODELS=` กำหนดรายการเอง · ค่าเริ่มต้นใช้ endpoint ของ Coding Plan ถ้าเป็น key แบบจ่ายตามใช้ ให้ตั้ง `ZAI_BASE_URL=https://api.z.ai/api/paas/v4` · `ZAI_REASONING_EFFORT` (low/high/max, ค่าเริ่มต้น max) สำหรับ GLM 5.3 ที่ปิด thinking ไม่ได้ |
 | `TYPHOON_API_KEY` | opentyphoon.ai (โมเดลไทย) | `typhoon:typhoon-v2.5-30b-a3b-instruct` |
 | `OPENROUTER_API_KEY` + `OPENROUTER_MODELS` | OpenRouter | ตามที่ใส่ใน `OPENROUTER_MODELS` |
 | `GEMINI_API_KEY` | Google Gemini | `gemini:gemini-2.5-flash` |
 | `CUSTOM_LLM_BASE_URL` / `_API_KEY` / `_MODELS` | API แบบ OpenAI-compatible อื่นๆ | `custom:<ชื่อโมเดล>` |
 
-- ชื่อโมเดลขึ้นต้นด้วยชื่อผู้ให้บริการ เช่น `zai:glm-4.7-flash` ถ้าไม่มี prefix จะถือเป็นโมเดล Ollama (`gemma3:4b`)
+- ชื่อโมเดลขึ้นต้นด้วยชื่อผู้ให้บริการ เช่น `zai:glm-5.3` ถ้าไม่มี prefix จะถือเป็นโมเดล Ollama (`gemma3:4b`)
 - `PROOFREAD_MODEL` ตั้งค่าเริ่มต้นได้ ถ้าว่างไว้ ระบบจะใช้ผู้ให้บริการตัวแรกที่มี key แล้วค่อยถอยไปใช้ Ollama
 - ข้อความซับ (ไม่ใช่วิดีโอหรือเสียง) จะถูกส่งไปยังผู้ให้บริการนั้น
 - ใช้หน้า **ทดสอบโมเดล** เทียบ API กับ Ollama ด้วยชุดทดสอบเดียวกันได้ก่อนเลือกใช้จริง
@@ -99,7 +99,7 @@ curl http://<IP-NAS>:8000/api/system
 |---|---|---|
 | `WHISPER_MODEL` | `ggml-large-v3-q5_0.bin` | โมเดลถอดเสียง (ต้องตั้งให้ตรงกันทั้ง 2 service) |
 | `ZAI_API_KEY`, `TYPHOON_API_KEY`, ... | – | API key สำหรับตรวจคำผิดผ่าน cloud (ดูหัวข้อด้านบน) |
-| `PROOFREAD_MODEL` | (ว่าง) | โมเดลตรวจคำเริ่มต้น เช่น `zai:glm-4.7-flash` |
+| `PROOFREAD_MODEL` | (ว่าง) | โมเดลตรวจคำเริ่มต้น เช่น `zai:glm-5.3` |
 | `OLLAMA_HOST` / `OLLAMA_MODEL` | host.docker.internal / `gemma3:4b` | ปล่อย `OLLAMA_HOST` ว่างเพื่อซ่อน Ollama |
 | `RENDER_MODE` | `auto` | `auto` / `vaapi` / `cpu` |
 | `VIDEO_BITRATE` / `VIDEO_MAXRATE` | `12M` / `15M` | bitrate ของไฟล์ที่ได้ |

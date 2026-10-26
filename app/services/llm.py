@@ -30,6 +30,14 @@ class Provider:
     curated: bool = False  # True: only show default_models (e.g. OpenRouter lists hundreds)
     extra_body: dict = field(default_factory=dict)
     json_mode: bool = True  # supports response_format={"type": "json_object"}
+    # Used instead of extra_body's thinking switch for models that refuse to turn thinking off.
+    thinking_body: dict = field(default_factory=dict)
+    always_think: set[str] = field(default_factory=set)  # learned from the API's refusal
+    always_think_re: str = ""  # known up front; the Coding Plan endpoint ignores "disabled" silently
+
+    def body_for(self, model: str) -> dict:
+        thinks = model in self.always_think or bool(self.always_think_re and re.match(self.always_think_re, model))
+        return {**self.extra_body, **self.thinking_body} if thinks else dict(self.extra_body)
 
     @property
     def is_ollama(self) -> bool:
@@ -49,11 +57,17 @@ def _build() -> dict[str, Provider]:
     providers = [
         Provider("ollama", "Ollama (ในเครื่อง)", config.OLLAMA_HOST),
         Provider(
-            "zai", "Z.AI GLM", e("ZAI_BASE_URL", "https://api.z.ai/api/paas/v4"), e("ZAI_API_KEY", ""),
-            default_models=_models_env("ZAI") or ["glm-4.7-flash", "glm-4.5-flash"],
+            # Coding Plan endpoint: plan subscribers are billed against the plan, not pay-as-you-go credit.
+            "zai", "Z.AI GLM", e("ZAI_BASE_URL", "https://api.z.ai/api/coding/paas/v4"), e("ZAI_API_KEY", ""),
+            # The Coding Plan covers only GLM 5.3 (bench: glm-5.3 100, -flash 50-88); glm-4.7-flash is free
+            # with a Standard key.
+            default_models=_models_env("ZAI") or ["glm-5.3", "glm-5.3-flash", "glm-4.7-flash"],
             curated=bool(_models_env("ZAI")),
             # GLM 4.5+ think before answering by default; spelling fixes don't need it.
             extra_body={"thinking": {"type": "disabled"}},
+            # GLM 5.3 always thinks and rejects "disabled" (error 1210); it takes an effort instead.
+            thinking_body={"thinking": {"type": "enabled"}, "reasoning_effort": e("ZAI_REASONING_EFFORT", "max")},
+            always_think_re=r"glm-5\.3",
         ),
         Provider(
             "typhoon", "Typhoon API", e("TYPHOON_BASE_URL", "https://api.opentyphoon.ai/v1"), e("TYPHOON_API_KEY", ""),
@@ -182,6 +196,14 @@ def _extract_json(text: str) -> str:
     return text
 
 
+def _refuses_no_thinking(r: httpx.Response) -> bool:
+    """Z.AI error 1210: "This model always engages in thinking and cannot be disabled"."""
+    try:
+        return str((r.json().get("error") or {}).get("code")) == "1210"
+    except ValueError:
+        return False
+
+
 def chat_json(model_ref: str, system: str, user: str, schema: dict, timeout: float) -> tuple[dict, dict]:
     """Ask for a JSON answer; returns (parsed JSON, stats)."""
     p, model = split_ref(model_ref)
@@ -212,10 +234,16 @@ def chat_json(model_ref: str, system: str, user: str, schema: dict, timeout: flo
         }
         content = (data.get("message") or {}).get("content", "")
     else:
-        body = {"model": model, "messages": messages, "temperature": 0, **p.extra_body}
-        if p.json_mode:
-            body["response_format"] = {"type": "json_object"}
-        r = httpx.post(f"{p.base_url}/chat/completions", headers=_headers(p), json=body, timeout=timeout)
+        def post():
+            body = {"model": model, "messages": messages, "temperature": 0, **p.body_for(model)}
+            if p.json_mode:
+                body["response_format"] = {"type": "json_object"}
+            return httpx.post(f"{p.base_url}/chat/completions", headers=_headers(p), json=body, timeout=timeout)
+
+        r = post()
+        if r.status_code >= 400 and p.thinking_body and model not in p.always_think and _refuses_no_thinking(r):
+            p.always_think.add(model)
+            r = post()
         if r.status_code >= 400:
             raise RuntimeError(f"{p.name} ตอบ {r.status_code}: {r.text[:300]}")
         data = r.json()
