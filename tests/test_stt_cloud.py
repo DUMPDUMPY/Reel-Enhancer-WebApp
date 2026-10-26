@@ -17,8 +17,8 @@ SCRIBE = {"language_code": "tha", "text": "...", "words": [
 
 def test_scribe_to_whisper_shape_and_cues():
     out = stt_cloud.to_whisper_json(SCRIBE)
-    assert len(out["segments"]) == 2  # music event dropped, long pause splits
-    assert out["segments"][0]["start"] == 1.0 and out["segments"][0]["text"] == "วันนี้กุ๊กไก่ แอบหนีเที่ยว"
+    assert len(out["segments"]) == 1  # music event dropped; the pause is split later, per word
+    assert out["segments"][0]["start"] == 1.0 and out["segments"][0]["text"] == "วันนี้กุ๊กไก่ แอบหนีเที่ยวสวัสดีครับ"
     cues = build_cues(out, ("กุ๊กไก่",))
     assert cues[0]["start"] == 1.0 and "กุ๊กไก่" in cues[0]["text"]
     assert cues[-1]["text"] == "สวัสดีครับ" and cues[-1]["start"] == 5.0
@@ -54,3 +54,28 @@ def test_default_model_prefers_cloud(monkeypatch):
     monkeypatch.setattr(config, "TRANSCRIBE_MODEL", "elevenlabs:scribe_v2")
     monkeypatch.setattr(config, "ELEVENLABS_API_KEY", "")
     assert stt_cloud.default_model() is None  # cloud default without a key falls back
+
+
+def test_thai_characters_never_split_mid_word():
+    # Real Scribe output for a song: Thai "words" are characters, and a held note
+    # leaves a 0.5 s gap inside ไหน (ไห | น).
+    chars = [("ถ้", 45.12, 45.28), ("า", 45.28, 45.44), ("วั", 45.44, 45.56), ("น", 45.56, 45.76),
+             ("ไ", 45.76, 45.8), ("ห", 45.8, 45.86), ("น", 46.38, 46.4), ("ไ", 46.4, 46.52),
+             ("ม่", 46.52, 46.84), ("มี", 46.84, 47.24), ("เ", 47.24, 47.28), ("ธ", 47.28, 47.44), ("อ", 47.44, 47.56),
+             ("ฉั", 48.6, 48.7), ("น", 48.7, 48.8), ("ร้", 48.8, 49.0), ("อ", 49.0, 49.1), ("ง", 49.1, 49.3)]
+    data = {"words": [{"text": t, "type": "word", "start": a, "end": b} for t, a, b in chars]}
+    cues = build_cues(stt_cloud.to_whisper_json(data))
+    texts = [c["text"].replace("\n", "") for c in cues]
+    assert texts == ["ถ้าวันไหนไม่มีเธอ", "ฉันร้อง"]  # split at the 1 s pause between words only
+    assert cues[0]["start"] == 45.12
+
+
+def test_segment_edges_keep_word_times():
+    data = {"words": [
+        {"text": "สวัสดี", "type": "word", "start": 1.0, "end": 1.5},
+        {"text": " ", "type": "spacing", "start": 1.5, "end": 1.7},
+        {"text": "ครับ", "type": "word", "start": 1.7, "end": 2.0},
+        {"text": " ", "type": "spacing", "start": 2.0, "end": 3.0},  # long trailing spacing
+    ]}
+    seg = stt_cloud.to_whisper_json(data)["segments"][0]
+    assert (seg["start"], seg["end"]) == (1.0, 2.0) and seg["words"][-1]["word"] == "ครับ"

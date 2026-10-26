@@ -10,6 +10,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   dropdown, also used when Whisper is stopped). `TRANSCRIBE_MODEL` overrides the default.
 
 ### Fixed
+- ElevenLabs subtitles no longer split inside a Thai word (e.g. `ไห` | `น` on a held note in a song).
+  Scribe returns Thai as single characters, so pauses are now split per PyThaiNLP word by the segmenter.
 - DSM Container Manager: removed the `cpus:` limit from `docker-compose.yml` (not supported there) and
   ship empty `data/` and `models/` folders, which must exist before the first start.
 

@@ -44,22 +44,29 @@ def _keyterms(hint: str) -> list[str]:
 def to_whisper_json(data: dict, pause_split: float = config.PAUSE_SPLIT_SECONDS) -> dict:
     """Scribe words[] -> {"segments": [{text, start, end, words: [{word, start, end}]}]}.
 
-    Segments break at sound events (music, laughter), long pauses and sentence ends,
-    which is what the segmenter uses as natural cue boundaries.
+    For Thai, Scribe's "words" are single characters or clusters ("น", "ที", "ห้"),
+    so a pause between two of them is often inside a word (a held note in a song).
+    Segments therefore break only at sound events, sentence ends and long *spacing*
+    (a real word boundary); pauses between words are left to the segmenter, which
+    sees whole PyThaiNLP words.
     """
     segments, cur = [], []
 
     def close():
         nonlocal cur
-        toks = [w for w in cur if w["word"].strip()]
-        if toks:
+        # Trim edge spacing so segment start/end match the token span (the segmenter
+        # rescales token times onto the segment, which would otherwise shift them).
+        while cur and not cur[0]["word"].strip():
+            cur.pop(0)
+        while cur and not cur[-1]["word"].strip():
+            cur.pop()
+        if cur:
             segments.append({
-                "text": "".join(w["word"] for w in cur).strip(),
-                "start": toks[0]["start"], "end": toks[-1]["end"], "words": cur,
+                "text": "".join(w["word"] for w in cur),
+                "start": cur[0]["start"], "end": cur[-1]["end"], "words": cur,
             })
         cur = []
 
-    last_end = None
     for w in data.get("words") or []:
         kind, text = w.get("type"), w.get("text", "")
         start, end = w.get("start"), w.get("end")
@@ -70,11 +77,10 @@ def to_whisper_json(data: dict, pause_split: float = config.PAUSE_SPLIT_SECONDS)
             continue
         if kind == "spacing":
             cur.append({"word": " ", "start": float(start), "end": float(end)})
+            if float(end) - float(start) >= pause_split:
+                close()
             continue
-        if last_end is not None and float(start) - last_end >= pause_split:
-            close()
         cur.append({"word": text, "start": float(start), "end": float(end)})
-        last_end = float(end)
         if _SENTENCE_END.search(text):
             close()
     close()
