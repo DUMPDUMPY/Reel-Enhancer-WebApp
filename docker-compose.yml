@@ -1,5 +1,8 @@
 # Synology DSM Container Manager -> Project -> Create -> point at this folder.
 # Open from your phone: http://<NAS-IP>:8000
+#
+# Settings and API keys live in .env (not in git, so `git pull` never touches them):
+#   cp .env.example .env    # once, then edit .env
 # ./data and ./models must exist before the first start (they ship in the repo as empty folders).
 # No `cpus:` limit: Container Manager on DSM doesn't support it; FFmpeg's CPU use is capped by CPU_THREADS.
 services:
@@ -11,8 +14,9 @@ services:
     devices:
       - /dev/dri:/dev/dri          # Intel iGPU (Vulkan), same as the Ollama container
     environment:
-      - WHISPER_MODEL=ggml-large-v3-q5_0.bin   # or ggml-large-v3-turbo-q5_0.bin (faster, less accurate in Thai)
-      - WHISPER_THREADS=4
+      # Read from .env when set there; must match the app's WHISPER_MODEL.
+      - WHISPER_MODEL=${WHISPER_MODEL:-ggml-large-v3-q5_0.bin}
+      - WHISPER_THREADS=${WHISPER_THREADS:-4}
     volumes:
       - ./models:/models
     mem_limit: 6g
@@ -30,34 +34,10 @@ services:
       - /dev/dri:/dev/dri          # Intel iGPU (VAAPI) for FFmpeg
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    env_file:
+      - .env                       # API keys and settings, see .env.example
     environment:
       - WHISPER_URL=http://whisper:8080
-      - WHISPER_MODEL=ggml-large-v3-q5_0.bin   # keep the same as the whisper service
-      # --- Cloud speech-to-text: with a key, "elevenlabs:scribe_v2" is the default model ---
-      - ELEVENLABS_API_KEY=
-      # Default speech-to-text model. Empty = ElevenLabs when its key is set, else Whisper.
-      - TRANSCRIBE_MODEL=
-      # --- AI proofreading (optional): cloud API with a key, or local Ollama ---
-      # Set a key to use that provider; the NAS then doesn't run any LLM itself.
-      - ZAI_API_KEY=                 # Z.AI GLM Coding Plan key (glm-5.3, glm-5.3-flash)
-      # - ZAI_BASE_URL=https://api.z.ai/api/paas/v4   # pay-as-you-go key instead of Coding Plan
-      # - ZAI_REASONING_EFFORT=high  # low | high | max, for GLM 5.3 (always thinks; max uses the most tokens)
-      - TYPHOON_API_KEY=             # opentyphoon.ai (Thai): typhoon-v2.5-30b-a3b-instruct
-      - OPENROUTER_API_KEY=          # with OPENROUTER_MODELS=model-a,model-b
-      - GEMINI_API_KEY=
-      # Any other OpenAI-compatible API: CUSTOM_LLM_BASE_URL / CUSTOM_LLM_API_KEY / CUSTOM_LLM_MODELS
-      # Default model, e.g. zai:glm-5.3. Empty = first cloud provider that has a key, else Ollama.
-      # With a cloud default, "AI proofreading" is ticked by default in the UI.
-      - PROOFREAD_MODEL=
-      # Ollama runs in another project on this NAS and publishes port 11434.
-      # Use the NAS IP instead (e.g. http://192.168.1.4:11434) if host-gateway doesn't work.
-      # Leave OLLAMA_HOST empty to hide Ollama entirely.
-      - OLLAMA_HOST=http://host.docker.internal:11434
-      - OLLAMA_MODEL=gemma3:4b
-      - OLLAMA_TIMEOUT=300         # seconds per batch of PROOFREAD_BATCH cues (default 10)
-      - RENDER_MODE=auto           # auto | vaapi | cpu
-      - CPU_THREADS=4              # only used if rendering falls back to the CPU
-      - JOB_RETENTION_HOURS=72
       - TZ=Asia/Bangkok
     volumes:
       - ./data:/data

@@ -143,7 +143,7 @@ def _list_models(p: Provider) -> dict:
             models = [m["name"] for m in r.json().get("models", [])]
         elif p.curated:
             if not p.default_models:  # e.g. OpenRouter lists hundreds; the user has to pick
-                return {"ok": False, "status": f"ใส่ {p.key.upper()}_MODELS ใน docker-compose.yml ด้วย", "models": []}
+                return {"ok": False, "status": f"ใส่ {p.key.upper()}_MODELS ใน .env ด้วย", "models": []}
             return {"ok": True, "status": "พร้อมใช้", "models": p.default_models}
         else:
             r = httpx.get(f"{p.base_url}/models", headers=_headers(p), timeout=6)
@@ -212,7 +212,7 @@ def chat_json(model_ref: str, system: str, user: str, schema: dict, timeout: flo
     """Ask for a JSON answer; returns (parsed JSON, stats)."""
     p, model = split_ref(model_ref)
     if not p.enabled:
-        raise RuntimeError(f"{p.name}: ยังไม่ได้ตั้งค่า (ใส่ API key ใน docker-compose.yml)")
+        raise RuntimeError(f"{p.name}: ยังไม่ได้ตั้งค่า (ใส่ API key ใน .env)")
     messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
     t0 = time.time()
 

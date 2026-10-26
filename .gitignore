@@ -7,3 +7,5 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .venv/
+# Settings and API keys (copy from .env.example)
+.env

@@ -21,10 +21,18 @@
 1. คัดลอกโฟลเดอร์โปรเจกต์นี้ไปไว้ที่ NAS เช่น `/volume2/docker/reel-enhancer` (หรือ `git clone` ผ่าน SSH หลังลงแพ็กเกจ Git Server)
    - ต้องมีโฟลเดอร์ `data/` และ `models/` อยู่ในนั้น (มีมาให้ใน repo แล้ว ถ้าหายให้สร้างเป็นโฟลเดอร์ว่าง) เพราะ Container Manager ไม่สร้างให้เอง
    - Container Manager ตั้งเพดาน CPU (`cpus:`) ไม่ได้ จึงไม่มีใน `docker-compose.yml` การใช้ CPU ตอนเรนเดอร์สำรองคุมด้วย `CPU_THREADS`
-2. เปิด `docker-compose.yml` แล้วตรวจค่า:
+2. สร้างไฟล์ตั้งค่า `.env` จากตัวอย่าง (ทำครั้งเดียว) แล้วใส่ API key / ค่าต่างๆ ในไฟล์นี้ **ไม่ต้องแก้ `docker-compose.yml`**
+   ```sh
+   cp .env.example .env
+   chmod 600 .env
+   vi .env        # หรือเปิดด้วย Text Editor ของ DSM
+   ```
+   - `.env` ไม่อยู่ใน git: `git pull` จะไม่ชนกับค่าที่ตั้งไว้ และ key ไม่ถูกใส่ลงใน image
+   - เขียนคอมเมนต์ (`#`) ไว้คนละบรรทัดกับค่า อย่าเขียนต่อท้ายค่า
    - `OLLAMA_HOST` ค่าเริ่มต้นคือ `http://host.docker.internal:11434` ถ้าเชื่อมไม่ได้ ให้เปลี่ยนเป็น IP ของ NAS เช่น `http://192.168.1.4:11434`
    - `OLLAMA_MODEL` ต้องเป็นโมเดลที่**สร้างข้อความได้** (โมเดล embedding ใช้ไม่ได้) เช่น `gemma3:4b`, `qwen2.5:3b`
 3. Container Manager → **Project** → **Create** → เลือกโฟลเดอร์นี้ → ใช้ `docker-compose.yml` ที่มีอยู่ → Build
+   (หรือผ่าน SSH: `sudo docker compose up -d --build`)
    - ครั้งแรกจะ build whisper.cpp แบบ Vulkan (ประมาณ 10–20 นาที)
    - ตอนเปิดครั้งแรก container `reel-whisper` จะดาวน์โหลดโมเดลราว 1.1 GB ลงโฟลเดอร์ `models/`
 4. ดึงโมเดลสำหรับตรวจคำผิดใน Ollama (ทำครั้งเดียว):
@@ -32,6 +40,15 @@
    docker exec -it ollama ollama pull gemma3:4b
    ```
 5. เปิดจากมือถือ: `http://<IP-NAS>:8000` (เช่น `http://192.168.1.4:8000`)
+
+### อัปเดตเวอร์ชันใหม่
+
+```sh
+cd /volume2/docker/reel-enhancer
+sudo git pull
+sudo docker compose up -d --build --force-recreate
+```
+เลขเวอร์ชันข้างชื่อแอปบนหน้าเว็บจะเปลี่ยน ถ้าแก้แค่ `.env` ใช้ `sudo docker compose up -d --force-recreate` (ไม่ต้อง build)
 
 ป้ายสถานะด้านบนของหน้าเว็บบอกว่าแต่ละส่วนพร้อมไหม: **Whisper ✓**, **Ollama ✓**, **Render iGPU**
 
@@ -73,7 +90,7 @@ curl http://<IP-NAS>:8000/api/system
 
 ## ถอดเสียงด้วย ElevenLabs Scribe (ไม่ต้องรัน Whisper บน NAS)
 
-ใส่ `ELEVENLABS_API_KEY` ใน `docker-compose.yml` แล้ว dropdown "โมเดลถอดเสียง" จะมี `elevenlabs:scribe_v2` อยู่ในกลุ่ม Cloud API และ**ถูกเลือกเป็นค่าเริ่มต้น**
+ใส่ `ELEVENLABS_API_KEY` ใน `.env` แล้ว dropdown "โมเดลถอดเสียง" จะมี `elevenlabs:scribe_v2` อยู่ในกลุ่ม Cloud API และ**ถูกเลือกเป็นค่าเริ่มต้น**
 - อยากให้ Whisper เป็นค่าเริ่มต้นแทน: ตั้ง `TRANSCRIBE_MODEL=ggml-large-v3-q5_0.bin`
 - ถ้าใช้แต่ ElevenLabs จะ Stop container `reel-whisper` ไว้ก็ได้ (ประหยัดแรมราว 2 GB) หน้าเว็บจะเลือก Cloud ให้เอง
 - ส่งเฉพาะไฟล์เสียง (16 kHz mono) ไปถอดเสียงพร้อมเวลาระดับคำ จากนั้นจัดท่อนซับบน NAS ด้วยวิธีเดียวกับ Whisper
@@ -82,7 +99,7 @@ curl http://<IP-NAS>:8000/api/system
 
 ## ตรวจคำผิดด้วย API key (ไม่ต้องรันโมเดลบน NAS)
 
-ใส่ key ใน `docker-compose.yml` แล้ว Recreate project โมเดลของเจ้านั้นจะขึ้นใน dropdown ทั้งหน้าทำคลิปและหน้าทดสอบโมเดล
+ใส่ key ใน `.env` แล้ว `docker compose up -d --force-recreate` โมเดลของเจ้านั้นจะขึ้นใน dropdown ทั้งหน้าทำคลิปและหน้าทดสอบโมเดล
 
 | ตัวแปร | ผู้ให้บริการ | ตัวอย่างโมเดล |
 |---|---|---|
@@ -98,7 +115,7 @@ curl http://<IP-NAS>:8000/api/system
 - ใช้หน้า **ทดสอบโมเดล** เทียบ API กับ Ollama ด้วยชุดทดสอบเดียวกันได้ก่อนเลือกใช้จริง
 - เมื่อ Ollama โหลดโมเดลค้างไว้ในแรม ใต้แถบด้านบนจะขึ้น **🧠 Ollama ใช้แรมอยู่** พร้อมขนาด กด **⏹ หยุด** เพื่อเอาโมเดลออกจากแรมทันที (ไม่ต้องรอหมดเวลา keep-alive)
 
-## การตั้งค่า (environment ใน docker-compose.yml)
+## การตั้งค่า (ไฟล์ `.env`, ดูตัวอย่างทั้งหมดใน `.env.example`)
 
 | ตัวแปร | ค่าเริ่มต้น | ความหมาย |
 |---|---|---|
