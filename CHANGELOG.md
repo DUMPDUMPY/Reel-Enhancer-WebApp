@@ -5,6 +5,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- **ElevenLabs is the default speech-to-text** when `ELEVENLABS_API_KEY` is set (listed first in the
+  dropdown, also used when Whisper is stopped). `TRANSCRIBE_MODEL` overrides the default.
+
 ### Fixed
 - DSM Container Manager: removed the `cpus:` limit from `docker-compose.yml` (not supported there) and
   ship empty `data/` and `models/` folders, which must exist before the first start.

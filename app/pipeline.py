@@ -30,6 +30,7 @@ VARIANT_LABEL = {"gpu": "iGPU (VAAPI)", "gpu-swdec": "iGPU (ถอดรหั�
 
 
 def transcribe_task(job_id: str, model: str | None, vad: bool, proofread: bool, llm_model: str | None) -> None:
+    model = model or stt_cloud.default_model()
     job = jobs.load(job_id)
     d = jobs.job_dir(job_id)
     hint = job.get("hint", "")

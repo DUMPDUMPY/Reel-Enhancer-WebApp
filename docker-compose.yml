@@ -35,6 +35,8 @@ services:
       - WHISPER_MODEL=ggml-large-v3-q5_0.bin   # keep the same as the whisper service
       # --- Cloud speech-to-text (optional): adds "elevenlabs:scribe_v2" to the model list ---
       - ELEVENLABS_API_KEY=
+      # Default speech-to-text model. Empty = ElevenLabs when its key is set, else Whisper.
+      - TRANSCRIBE_MODEL=
       # --- AI proofreading (optional): cloud API with a key, or local Ollama ---
       # Set a key to use that provider; the NAS then doesn't run any LLM itself.
       - ZAI_API_KEY=                 # Z.AI GLM  (models: glm-4.7-flash, glm-4.5-flash, ...)

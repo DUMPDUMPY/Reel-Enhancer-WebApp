@@ -63,6 +63,7 @@ def system() -> dict:
     return {
         "whisper": {**transcriber.health(), "models": transcriber.list_models(), "current": transcriber.current_model()},
         "stt_cloud": {"ok": stt_cloud.enabled(), "models": stt_cloud.models()},
+        "stt_default": stt_cloud.default_model() or transcriber.current_model(),
         "llm": proofreader.status(),
         "render": {"mode": caps.mode, "low_power": caps.low_power, "detail": caps.detail, "checked": caps.checked},
         "fonts": subtitles.list_fonts(),

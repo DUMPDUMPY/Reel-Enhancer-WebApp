@@ -67,19 +67,18 @@ async function loadSystem() {
   }
   const s = state.sys;
   const chip = (ok, label) => `<span class="chip ${ok ? "ok" : "bad"}">${label}</span>`;
+  const models = s.whisper.models.length ? s.whisper.models : [s.whisper.current];
+  // Default from the server (ElevenLabs when its key is set); a stopped Whisper also falls back to the cloud.
+  const sttDefault = !s.whisper.ok && s.stt_cloud.models.length ? s.stt_cloud.models[0] : s.stt_default;
+  const opt = (m) => `<option value="${esc(m)}" ${m === sttDefault ? "selected" : ""}>${esc(m)}</option>`;
+  $("#model").innerHTML =
+    (s.stt_cloud.models.length ? `<optgroup label="Cloud API">` + s.stt_cloud.models.map(opt).join("") + `</optgroup>` : "") +
+    `<optgroup label="Whisper บน iGPU (NAS)">` + models.map(opt).join("") + `</optgroup>`;
+  const cloudStt = s.stt_cloud.models.includes(sttDefault);
   $("#chips").innerHTML =
-    chip(s.whisper.ok || s.stt_cloud.ok, "ถอดเสียง " + (s.whisper.ok ? "✓" : s.stt_cloud.ok ? "☁" : "✗")) +
+    chip(s.whisper.ok || s.stt_cloud.ok, "ถอดเสียง " + (cloudStt ? "☁" : s.whisper.ok ? "✓" : "✗")) +
     chip(s.llm.ok, "AI ตรวจคำ " + (s.llm.ok ? "✓" : "✗")) +
     chip(s.render.mode === "vaapi", s.render.mode === "vaapi" ? "Render iGPU" : "Render CPU");
-
-  const models = s.whisper.models.length ? s.whisper.models : [s.whisper.current];
-  $("#model").innerHTML =
-    `<optgroup label="Whisper บน iGPU (NAS)">` +
-    models.map((m) => `<option value="${esc(m)}" ${m === s.whisper.current ? "selected" : ""}>${esc(m)}</option>`).join("") +
-    `</optgroup>` +
-    (s.stt_cloud.models.length
-      ? `<optgroup label="Cloud API">` + s.stt_cloud.models.map((m) => `<option value="${esc(m)}">${esc(m)}</option>`).join("") + `</optgroup>`
-      : "");
 
   $("#llm-model").innerHTML = llmOptions(s.llm);
   $("#proofread").disabled = !s.llm.ok;

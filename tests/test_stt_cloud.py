@@ -41,3 +41,16 @@ def test_transcribe_request(monkeypatch, tmp_path):
     assert seen["data"]["keyterms"] == ["กุ๊กไก่", "เจ้าเหมียว"]
     assert out["segments"]
     assert stt_cloud.models() == ["elevenlabs:scribe_v2"]
+
+
+def test_default_model_prefers_cloud(monkeypatch):
+    monkeypatch.setattr(config, "TRANSCRIBE_MODEL", "")
+    monkeypatch.setattr(config, "ELEVENLABS_API_KEY", "")
+    assert stt_cloud.default_model() is None  # Whisper's own model
+    monkeypatch.setattr(config, "ELEVENLABS_API_KEY", "k")
+    assert stt_cloud.default_model() == "elevenlabs:" + config.ELEVENLABS_STT_MODEL
+    monkeypatch.setattr(config, "TRANSCRIBE_MODEL", "ggml-large-v3-q5_0.bin")
+    assert stt_cloud.default_model() == "ggml-large-v3-q5_0.bin"
+    monkeypatch.setattr(config, "TRANSCRIBE_MODEL", "elevenlabs:scribe_v2")
+    monkeypatch.setattr(config, "ELEVENLABS_API_KEY", "")
+    assert stt_cloud.default_model() is None  # cloud default without a key falls back

@@ -73,7 +73,9 @@ curl http://<IP-NAS>:8000/api/system
 
 ## ถอดเสียงด้วย ElevenLabs Scribe (ไม่ต้องรัน Whisper บน NAS)
 
-ใส่ `ELEVENLABS_API_KEY` ใน `docker-compose.yml` แล้ว dropdown "โมเดลถอดเสียง" จะมี `elevenlabs:scribe_v2` อยู่ในกลุ่ม Cloud API
+ใส่ `ELEVENLABS_API_KEY` ใน `docker-compose.yml` แล้ว dropdown "โมเดลถอดเสียง" จะมี `elevenlabs:scribe_v2` อยู่ในกลุ่ม Cloud API และ**ถูกเลือกเป็นค่าเริ่มต้น**
+- อยากให้ Whisper เป็นค่าเริ่มต้นแทน: ตั้ง `TRANSCRIBE_MODEL=ggml-large-v3-q5_0.bin`
+- ถ้าใช้แต่ ElevenLabs จะ Stop container `reel-whisper` ไว้ก็ได้ (ประหยัดแรมราว 2 GB) หน้าเว็บจะเลือก Cloud ให้เอง
 - ส่งเฉพาะไฟล์เสียง (16 kHz mono) ไปถอดเสียงพร้อมเวลาระดับคำ จากนั้นจัดท่อนซับบน NAS ด้วยวิธีเดียวกับ Whisper
 - ชื่อในช่อง hint จะถูกส่งเป็น `keyterms` เพื่อให้สะกดชื่อถูก (ElevenLabs คิดเพิ่ม 20%) ปิดได้ด้วย `ELEVENLABS_KEYTERMS=0`
 - ถ้าไม่ได้ใส่ key ทุกอย่างจะทำงานบน iGPU เหมือนเดิม

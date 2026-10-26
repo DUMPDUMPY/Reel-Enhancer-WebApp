@@ -27,6 +27,14 @@ def is_cloud(model: str | None) -> bool:
     return bool(model) and model.startswith(PREFIX)
 
 
+def default_model() -> str | None:
+    """TRANSCRIBE_MODEL, else Scribe when a key is set; None means Whisper's current model."""
+    m = config.TRANSCRIBE_MODEL
+    if m and not (is_cloud(m) and not enabled()):  # a cloud default without its key falls back to Whisper
+        return m
+    return models()[0] if enabled() else None
+
+
 def _keyterms(hint: str) -> list[str]:
     # Scribe limits: <50 chars and at most 5 words per term; these characters are rejected.
     terms = [t for t in parse_hint_words(hint) if len(t) < 50 and not re.search(r"[<>{}\[\]\\]", t)]

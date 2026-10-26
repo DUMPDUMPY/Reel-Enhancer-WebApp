@@ -38,6 +38,9 @@ ELEVENLABS_BASE_URL = _env("ELEVENLABS_BASE_URL", "https://api.elevenlabs.io").r
 ELEVENLABS_STT_MODEL = _env("ELEVENLABS_STT_MODEL", "scribe_v2")
 # Send hint words as Scribe "keyterms" (better names, +20% cost).
 ELEVENLABS_KEYTERMS = _env("ELEVENLABS_KEYTERMS", "1") not in ("0", "false", "no", "")
+# Default speech-to-text model, e.g. "elevenlabs:scribe_v2" or a ggml-*.bin name.
+# Empty: ElevenLabs when its key is set, else the Whisper server's model.
+TRANSCRIBE_MODEL = _env("TRANSCRIBE_MODEL", "")
 
 # Proofreading LLM (optional). Local Ollama, or a cloud API with a key (see services/llm.py:
 # ZAI_API_KEY, TYPHOON_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY, CUSTOM_LLM_*).
