@@ -10,6 +10,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   dropdown, also used when Whisper is stopped). `TRANSCRIBE_MODEL` overrides the default.
 
 ### Fixed
+- Proofreading a long clip (e.g. a 3-minute song, ~40 cues) with an 8B Ollama model timed out after
+  2 minutes. Cues are now sent in batches of `PROOFREAD_BATCH` (10) with per-batch progress on the
+  node; a failed batch is skipped instead of losing the whole result. `OLLAMA_TIMEOUT` default 120 → 300 s per batch.
 - Whisper with VAD on a song could return no subtitles at all (Silero VAD found no speech in the
   singing). If VAD finds nothing, the clip is now transcribed again without VAD, shown on the node.
 - ElevenLabs subtitles no longer split inside a Thai word (e.g. `ไห` | `น` on a held note in a song).

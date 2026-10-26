@@ -49,7 +49,10 @@ OLLAMA_HOST = _env("OLLAMA_HOST", "http://host.docker.internal:11434").rstrip("/
 OLLAMA_MODEL = _env("OLLAMA_MODEL", "gemma3:4b")
 # Default model for proofreading, e.g. "zai:glm-4.7-flash". Empty: first cloud provider with a key, else Ollama.
 PROOFREAD_MODEL = _env("PROOFREAD_MODEL", "")
-OLLAMA_TIMEOUT = _env_float("OLLAMA_TIMEOUT", 120)  # also used for cloud APIs
+OLLAMA_TIMEOUT = _env_float("OLLAMA_TIMEOUT", 300)  # per request (one batch); also used for cloud APIs
+# Cues per proofreading request. A whole song in one request can take minutes on an 8B model;
+# small batches keep each call short, show progress, and one bad batch doesn't lose the rest.
+PROOFREAD_BATCH = _env_int("PROOFREAD_BATCH", 10)
 
 # Rendering. RENDER_MODE: auto | vaapi | cpu
 RENDER_MODE = _env("RENDER_MODE", "auto")

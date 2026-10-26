@@ -105,6 +105,7 @@ curl http://<IP-NAS>:8000/api/system
 | `ZAI_API_KEY`, `TYPHOON_API_KEY`, ... | – | API key สำหรับตรวจคำผิดผ่าน cloud (ดูหัวข้อด้านบน) |
 | `PROOFREAD_MODEL` | (ว่าง) | โมเดลตรวจคำเริ่มต้น เช่น `zai:glm-4.7-flash` |
 | `OLLAMA_HOST` / `OLLAMA_MODEL` | host.docker.internal / `gemma3:4b` | ปล่อย `OLLAMA_HOST` ว่างเพื่อซ่อน Ollama |
+| `PROOFREAD_BATCH` / `OLLAMA_TIMEOUT` | `10` / `300` | ส่งซับให้ AI ตรวจทีละกี่ท่อน และรอแต่ละชุดได้นานสุดกี่วินาที (ชุดที่ล้มเหลวจะข้ามไป ชุดอื่นยังใช้ได้) |
 | `RENDER_MODE` | `auto` | `auto` / `vaapi` / `cpu` |
 | `VIDEO_BITRATE` / `VIDEO_MAXRATE` | `12M` / `15M` | bitrate ของไฟล์ที่ได้ |
 | `MAX_LINE_WIDTH` | `20` | จำนวนตัวอักษรต่อบรรทัดตอนจัดท่อนอัตโนมัติ (ไม่นับสระบน/ล่าง วรรณยุกต์) |

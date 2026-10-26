@@ -51,6 +51,7 @@ services:
       # Leave OLLAMA_HOST empty to hide Ollama entirely.
       - OLLAMA_HOST=http://host.docker.internal:11434
       - OLLAMA_MODEL=gemma3:4b
+      - OLLAMA_TIMEOUT=300         # seconds per batch of PROOFREAD_BATCH cues (default 10)
       - RENDER_MODE=auto           # auto | vaapi | cpu
       - CPU_THREADS=4              # only used if rendering falls back to the CPU
       - JOB_RETENTION_HOURS=72

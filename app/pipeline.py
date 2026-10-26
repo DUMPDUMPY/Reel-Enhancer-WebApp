@@ -84,14 +84,23 @@ def _proofread(job_id: str, cues: list[dict], hint: str, llm_model: str | None) 
     # Proofreading is a bonus: if the LLM is down or answers badly, keep the transcript.
     model = llm_model or llm.default_model()
     jobs.step_update(job_id, "proofread", "running", 0.0, model, device=device_label(model))
+
+    def progress(done: int, total: int) -> None:
+        jobs.step_update(job_id, "proofread", progress=done / total, detail=f"{model} · ชุด {done}/{total}")
+
     try:
-        suggestions = proofreader.proofread(cues, hint, model)
+        suggestions, errors = proofreader.proofread(cues, hint, model, on_progress=progress)
     except Exception as e:
         jobs.update(job_id, suggestions=[], proofread_error=f"ตรวจคำผิดไม่สำเร็จ: {e}")
         jobs.step_update(job_id, "proofread", "warn", detail="ไม่สำเร็จ ข้ามไป (ซับยังอยู่ครบ)")
         return
+    found = f"แนะนำแก้ {len(suggestions)} จุด" if suggestions else "ไม่พบคำผิด"
+    if errors:
+        jobs.update(job_id, suggestions=suggestions, proofread_error="ตรวจคำผิดไม่ครบ: " + " · ".join(errors))
+        jobs.step_update(job_id, "proofread", "warn", detail=f"{found} · ตรวจไม่สำเร็จ {len(errors)} ชุด")
+        return
     jobs.update(job_id, suggestions=suggestions, proofread_error="")
-    jobs.step_update(job_id, "proofread", "done", detail=f"แนะนำแก้ {len(suggestions)} จุด" if suggestions else "ไม่พบคำผิด")
+    jobs.step_update(job_id, "proofread", "done", detail=found)
 
 
 def proofread_task(job_id: str, llm_model: str | None) -> None:
