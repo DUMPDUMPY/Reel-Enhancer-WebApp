@@ -15,6 +15,7 @@
     <button class="tab on" data-view="edit">🎬 ทำคลิป</button>
     <button class="tab" data-view="bench">🧪 ทดสอบโมเดล</button>
   </nav>
+  <div class="ollama-mem hidden" id="ollama-mem"></div>
 </header>
 
 <main id="view-edit">
@@ -47,7 +48,7 @@
     </div>
     <label class="switch"><input type="checkbox" id="vad" checked><span>ตัดช่วงที่มีแต่เพลง/เงียบ (VAD)</span></label>
     <label class="switch"><input type="checkbox" id="proofread"><span>ให้ AI ช่วยตรวจคำผิด</span></label>
-    <label class="field hidden" id="llm-model-wrap"><span>โมเดลตรวจคำ (ในเครื่อง หรือ API)</span><select id="llm-model"></select></label>
+    <label class="field hidden" id="llm-model-wrap"><span>โมเดลตรวจคำ (API หรือในเครื่อง)</span><select id="llm-model"></select></label>
     <button class="btn primary" id="btn-transcribe">1. ถอดเสียงจับเวลา</button>
     <div class="task hidden" id="task-transcribe">
       <div class="task-head"><span class="msg"></span><span class="task-meta"><b class="pct"></b> · <span class="total-time"></span></span></div>
