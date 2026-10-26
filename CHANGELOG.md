@@ -37,6 +37,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   that refuse `thinking: disabled` are retried the same way. Default Z.AI model is now `glm-5.3`
   (100 on the built-in test set; `glm-5.3-flash` 50–88).
 ### Fixed
+- Line breaks no longer split a word when PyThaiNLP tokenizes it oddly (e.g. ตั้ง|ใจมา): breaks
+  where a dictionary word spans the gap are avoided.
 - ElevenLabs transcripts no longer lose real lines such as "อย่าลืมกดติดตาม…": the Whisper
   outro-hallucination filter is skipped for Scribe segments.
 
