@@ -1,5 +1,7 @@
 # Synology DSM Container Manager -> Project -> Create -> point at this folder.
 # Open from your phone: http://<NAS-IP>:8000
+# ./data and ./models must exist before the first start (they ship in the repo as empty folders).
+# No `cpus:` limit: Container Manager on DSM doesn't support it; FFmpeg's CPU use is capped by CPU_THREADS.
 services:
   whisper:
     build: ./docker/whisper
@@ -33,6 +35,8 @@ services:
       - WHISPER_MODEL=ggml-large-v3-q5_0.bin   # keep the same as the whisper service
       # --- Cloud speech-to-text (optional): adds "elevenlabs:scribe_v2" to the model list ---
       - ELEVENLABS_API_KEY=
+      # Default speech-to-text model. Empty = ElevenLabs when its key is set, else Whisper.
+      - TRANSCRIBE_MODEL=
       # --- AI proofreading (optional): cloud API with a key, or local Ollama ---
       # Set a key to use that provider; the NAS then doesn't run any LLM itself.
       - ZAI_API_KEY=                 # Z.AI GLM Coding Plan key (glm-5.3, glm-5.3-flash)
@@ -49,6 +53,7 @@ services:
       # Leave OLLAMA_HOST empty to hide Ollama entirely.
       - OLLAMA_HOST=http://host.docker.internal:11434
       - OLLAMA_MODEL=gemma3:4b
+      - OLLAMA_TIMEOUT=300         # seconds per batch of PROOFREAD_BATCH cues (default 10)
       - RENDER_MODE=auto           # auto | vaapi | cpu
       - CPU_THREADS=4              # only used if rendering falls back to the CPU
       - JOB_RETENTION_HOURS=72
@@ -57,4 +62,3 @@ services:
       - ./data:/data
       - ./models:/models:ro
     mem_limit: 4g
-    cpus: 4

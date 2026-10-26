@@ -18,7 +18,9 @@
 
 ## ติดตั้งบน Synology DSM (Container Manager)
 
-1. คัดลอกโฟลเดอร์โปรเจกต์นี้ไปไว้ที่ NAS เช่น `/volume2/docker/reel-enhancer`
+1. คัดลอกโฟลเดอร์โปรเจกต์นี้ไปไว้ที่ NAS เช่น `/volume2/docker/reel-enhancer` (หรือ `git clone` ผ่าน SSH หลังลงแพ็กเกจ Git Server)
+   - ต้องมีโฟลเดอร์ `data/` และ `models/` อยู่ในนั้น (มีมาให้ใน repo แล้ว ถ้าหายให้สร้างเป็นโฟลเดอร์ว่าง) เพราะ Container Manager ไม่สร้างให้เอง
+   - Container Manager ตั้งเพดาน CPU (`cpus:`) ไม่ได้ จึงไม่มีใน `docker-compose.yml` การใช้ CPU ตอนเรนเดอร์สำรองคุมด้วย `CPU_THREADS`
 2. เปิด `docker-compose.yml` แล้วตรวจค่า:
    - `OLLAMA_HOST` ค่าเริ่มต้นคือ `http://host.docker.internal:11434` ถ้าเชื่อมไม่ได้ ให้เปลี่ยนเป็น IP ของ NAS เช่น `http://192.168.1.4:11434`
    - `OLLAMA_MODEL` ต้องเป็นโมเดลที่**สร้างข้อความได้** (โมเดล embedding ใช้ไม่ได้) เช่น `gemma3:4b`, `qwen2.5:3b`
@@ -71,7 +73,9 @@ curl http://<IP-NAS>:8000/api/system
 
 ## ถอดเสียงด้วย ElevenLabs Scribe (ไม่ต้องรัน Whisper บน NAS)
 
-ใส่ `ELEVENLABS_API_KEY` ใน `docker-compose.yml` แล้ว dropdown "โมเดลถอดเสียง" จะมี `elevenlabs:scribe_v2` อยู่ในกลุ่ม Cloud API
+ใส่ `ELEVENLABS_API_KEY` ใน `docker-compose.yml` แล้ว dropdown "โมเดลถอดเสียง" จะมี `elevenlabs:scribe_v2` อยู่ในกลุ่ม Cloud API และ**ถูกเลือกเป็นค่าเริ่มต้น**
+- อยากให้ Whisper เป็นค่าเริ่มต้นแทน: ตั้ง `TRANSCRIBE_MODEL=ggml-large-v3-q5_0.bin`
+- ถ้าใช้แต่ ElevenLabs จะ Stop container `reel-whisper` ไว้ก็ได้ (ประหยัดแรมราว 2 GB) หน้าเว็บจะเลือก Cloud ให้เอง
 - ส่งเฉพาะไฟล์เสียง (16 kHz mono) ไปถอดเสียงพร้อมเวลาระดับคำ จากนั้นจัดท่อนซับบน NAS ด้วยวิธีเดียวกับ Whisper
 - ชื่อในช่อง hint จะถูกส่งเป็น `keyterms` เพื่อให้สะกดชื่อถูก (ElevenLabs คิดเพิ่ม 20%) ปิดได้ด้วย `ELEVENLABS_KEYTERMS=0`
 - ถ้าไม่ได้ใส่ key ทุกอย่างจะทำงานบน iGPU เหมือนเดิม
@@ -101,6 +105,7 @@ curl http://<IP-NAS>:8000/api/system
 | `ZAI_API_KEY`, `TYPHOON_API_KEY`, ... | – | API key สำหรับตรวจคำผิดผ่าน cloud (ดูหัวข้อด้านบน) |
 | `PROOFREAD_MODEL` | (ว่าง) | โมเดลตรวจคำเริ่มต้น เช่น `zai:glm-5.3` |
 | `OLLAMA_HOST` / `OLLAMA_MODEL` | host.docker.internal / `gemma3:4b` | ปล่อย `OLLAMA_HOST` ว่างเพื่อซ่อน Ollama |
+| `PROOFREAD_BATCH` / `OLLAMA_TIMEOUT` | `10` / `300` | ส่งซับให้ AI ตรวจทีละกี่ท่อน และรอแต่ละชุดได้นานสุดกี่วินาที (ชุดที่ล้มเหลวจะข้ามไป ชุดอื่นยังใช้ได้) |
 | `RENDER_MODE` | `auto` | `auto` / `vaapi` / `cpu` |
 | `VIDEO_BITRATE` / `VIDEO_MAXRATE` | `12M` / `15M` | bitrate ของไฟล์ที่ได้ |
 | `MAX_LINE_WIDTH` | `20` | จำนวนตัวอักษรต่อบรรทัดตอนจัดท่อนอัตโนมัติ (ไม่นับสระบน/ล่าง วรรณยุกต์) |

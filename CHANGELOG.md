@@ -5,7 +5,24 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- **ElevenLabs is the default speech-to-text** when `ELEVENLABS_API_KEY` is set (listed first in the
+  dropdown, also used when Whisper is stopped). `TRANSCRIBE_MODEL` overrides the default.
+
+### Fixed
+- Proofreading a long clip (e.g. a 3-minute song, ~40 cues) with an 8B Ollama model timed out after
+  2 minutes. Cues are now sent in batches of `PROOFREAD_BATCH` (10) with per-batch progress on the
+  node; a failed batch is skipped instead of losing the whole result. `OLLAMA_TIMEOUT` default 120 → 300 s per batch.
+- Whisper with VAD on a song could return no subtitles at all (Silero VAD found no speech in the
+  singing). If VAD finds nothing, the clip is now transcribed again without VAD, shown on the node.
+- ElevenLabs subtitles no longer split inside a Thai word (e.g. `ไห` | `น` on a held note in a song).
+  Scribe returns Thai as single characters, so pauses are now split per PyThaiNLP word by the segmenter.
+- DSM Container Manager: removed the `cpus:` limit from `docker-compose.yml` (not supported there) and
+  ship empty `data/` and `models/` folders, which must exist before the first start.
+
 ### Added
+- **Delete jobs** from the recent-jobs list (🗑 per job, or "ลบงานทั้งหมด") to free disk space; each job
+  shows its size on disk and the list header shows the total. Comparison runs can be deleted too.
 - **Speech-to-text via ElevenLabs Scribe** (`ELEVENLABS_API_KEY`): `elevenlabs:scribe_v2` appears in
   the model list; word timestamps are converted to the Whisper shape so segmenting, editing and
   rendering are unchanged. Hint words are sent as `keyterms` (`ELEVENLABS_KEYTERMS=0` to disable).

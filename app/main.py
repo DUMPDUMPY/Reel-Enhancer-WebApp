@@ -63,6 +63,7 @@ def system() -> dict:
     return {
         "whisper": {**transcriber.health(), "models": transcriber.list_models(), "current": transcriber.current_model()},
         "stt_cloud": {"ok": stt_cloud.enabled(), "models": stt_cloud.models()},
+        "stt_default": stt_cloud.default_model() or transcriber.current_model(),
         "llm": proofreader.status(),
         "render": {"mode": caps.mode, "low_power": caps.low_power, "detail": caps.detail, "checked": caps.checked},
         "fonts": subtitles.list_fonts(),
@@ -95,8 +96,9 @@ def font(name: str) -> FileResponse:
 def list_jobs() -> list[dict]:
     return [
         {"id": j["id"], "filename": j.get("filename"), "created": j.get("created"),
-         "has_output": bool(j.get("output")), "cues": len(j.get("cues") or [])}
-        for j in jobs.list_recent()
+         "has_output": bool(j.get("output")), "cues": len(j.get("cues") or []),
+         "size": jobs.dir_size(j["id"]), "busy": (j.get("task") or {}).get("state") in ("queued", "running")}
+        for j in jobs.list_recent(200)  # all of them, so old jobs can be deleted from the list
         if j.get("kind") != "bench"
     ]
 
@@ -306,6 +308,7 @@ def bench_runs() -> list[dict]:
         out.append({
             "id": j["id"], "created": j.get("created"), "models": j.get("models"),
             "source_name": j.get("source_name"), "state": (j.get("task") or {}).get("state"),
+            "busy": (j.get("task") or {}).get("state") in ("queued", "running"),
         })
     return out[:20]
 

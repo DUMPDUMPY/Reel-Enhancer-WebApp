@@ -38,6 +38,9 @@ ELEVENLABS_BASE_URL = _env("ELEVENLABS_BASE_URL", "https://api.elevenlabs.io").r
 ELEVENLABS_STT_MODEL = _env("ELEVENLABS_STT_MODEL", "scribe_v2")
 # Send hint words as Scribe "keyterms" (better names, +20% cost).
 ELEVENLABS_KEYTERMS = _env("ELEVENLABS_KEYTERMS", "1") not in ("0", "false", "no", "")
+# Default speech-to-text model, e.g. "elevenlabs:scribe_v2" or a ggml-*.bin name.
+# Empty: ElevenLabs when its key is set, else the Whisper server's model.
+TRANSCRIBE_MODEL = _env("TRANSCRIBE_MODEL", "")
 
 # Proofreading LLM (optional). Local Ollama, or a cloud API with a key (see services/llm.py:
 # ZAI_API_KEY, TYPHOON_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY, CUSTOM_LLM_*).
@@ -46,7 +49,10 @@ OLLAMA_HOST = _env("OLLAMA_HOST", "http://host.docker.internal:11434").rstrip("/
 OLLAMA_MODEL = _env("OLLAMA_MODEL", "gemma3:4b")
 # Default model for proofreading, e.g. "zai:glm-5.3". Empty: first cloud provider with a key, else Ollama.
 PROOFREAD_MODEL = _env("PROOFREAD_MODEL", "")
-OLLAMA_TIMEOUT = _env_float("OLLAMA_TIMEOUT", 120)  # also used for cloud APIs
+OLLAMA_TIMEOUT = _env_float("OLLAMA_TIMEOUT", 300)  # per request (one batch); also used for cloud APIs
+# Cues per proofreading request. A whole song in one request can take minutes on an 8B model;
+# small batches keep each call short, show progress, and one bad batch doesn't lose the rest.
+PROOFREAD_BATCH = _env_int("PROOFREAD_BATCH", 10)
 
 # Rendering. RENDER_MODE: auto | vaapi | cpu
 RENDER_MODE = _env("RENDER_MODE", "auto")

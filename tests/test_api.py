@@ -3,7 +3,7 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from app import main
+from app import jobs, main
 from app.services import transcriber
 from tests.test_render import make_clip
 
@@ -120,3 +120,34 @@ def test_failed_step_is_marked_error(client, tmp_path, monkeypatch):
     states = {n["key"]: n["state"] for n in job["task"]["steps"]}
     assert job["task"]["state"] == "error" and "whisper down" in job["task"]["error"]
     assert states == {"extract": "done", "whisper": "error", "segment": "pending", "proofread": "pending"}
+
+
+def test_retry_without_vad_when_vad_finds_nothing(monkeypatch, tmp_path):
+    calls = []
+
+    def fake(wav, hint="", model=None, vad=True):
+        calls.append(vad)
+        return {"segments": []} if vad else FAKE  # VAD dropped the singing
+
+    monkeypatch.setattr(transcriber, "transcribe", fake)
+    with TestClient(main.app) as c:
+        src = make_clip(tmp_path / "song.mp4", size="720x1280")
+        with src.open("rb") as f:
+            jid = c.post("/api/jobs", files={"file": ("song.mp4", f, "video/mp4")}).json()["id"]
+        c.post(f"/api/jobs/{jid}/transcribe", json={"vad": True, "model": "ggml-large-v3-q5_0.bin"})
+        job = wait(c, jid)
+    assert calls == [True, False]
+    assert job["cues"] and job["transcribe_meta"]["vad"] is False
+    node = next(s for s in job["task"]["steps"] if s["key"] == "whisper")
+    assert node["state"] == "done" and "ไม่ใช้ VAD" in node["detail"]
+
+
+def test_list_shows_size_and_delete_frees_it(client, tmp_path):
+    src = make_clip(tmp_path / "clip.mp4", size="720x1280")
+    with src.open("rb") as f:
+        jid = client.post("/api/jobs", files={"file": ("clip.mp4", f, "video/mp4")}).json()["id"]
+    row = next(j for j in client.get("/api/jobs").json() if j["id"] == jid)
+    assert row["size"] > 0 and row["busy"] is False
+    assert client.delete(f"/api/jobs/{jid}").json() == {"ok": True}
+    assert jid not in [j["id"] for j in client.get("/api/jobs").json()]
+    assert not jobs.job_dir(jid).exists()

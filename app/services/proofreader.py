@@ -7,6 +7,7 @@ silently rewrite what was actually said.
 """
 
 import json
+from collections.abc import Callable
 
 from app import config
 from app.services import llm
@@ -76,12 +77,30 @@ def ask_validated(items: list[dict], context: str = "", model: str | None = None
     raise ValueError(f"{failed[-1]['error']} (ลอง {len(failed)} ครั้ง)")
 
 
-def proofread(cues: list[dict], context: str = "", model: str | None = None) -> list[dict]:
-    """Return suggestions [{id, before, after}] for cues whose spelling the model fixed."""
+def proofread(
+    cues: list[dict], context: str = "", model: str | None = None,
+    batch: int = config.PROOFREAD_BATCH, on_progress: Callable[[int, int], None] | None = None,
+) -> tuple[list[dict], list[str]]:
+    """Suggestions [{id, before, after}] plus the errors of batches that failed.
+
+    Cues go out in batches; a failed batch is skipped so the others still count.
+    Raises only if every batch failed.
+    """
     if not cues:
-        return []
+        return [], []
     items = [{"id": int(c["id"]), "text": _flat(c["text"])} for c in cues]
-    return ask_validated(items, context, model)["suggestions"]
+    chunks = [items[i:i + max(batch, 1)] for i in range(0, len(items), max(batch, 1))]
+    suggestions, errors = [], []
+    for n, chunk in enumerate(chunks, 1):
+        try:
+            suggestions += ask_validated(chunk, context, model)["suggestions"]
+        except Exception as e:  # timeout, HTTP error or malformed answer: keep going
+            errors.append(f"ชุด {n}: {e}")
+        if on_progress:
+            on_progress(n, len(chunks))
+    if len(errors) == len(chunks):
+        raise RuntimeError(errors[-1])
+    return suggestions, errors
 
 
 def validate(sent: list[dict], received: list) -> list[dict]:

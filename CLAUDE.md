@@ -56,6 +56,22 @@ FFmpeg enhance + burn subtitles at 1080×1920 → download. User-facing text is 
 - `app/services/stt_cloud.py` — ElevenLabs Scribe STT (`ELEVENLABS_API_KEY`), output converted to
   whisper verbose_json so `segmenter` is shared. Picked when the model id starts with `elevenlabs:`.
 
+## Verified on the NAS (Core Ultra 5 245K, DSM Container Manager)
+
+- whisper.cpp Vulkan: `ggml_vulkan: 0 = Intel(R) Graphics (ARL) (Intel open-source Mesa driver)`,
+  `uma: 1 | fp16: 1 | int dot: 1`; the model loads on `Vulkan0`. `llvmpipe` is also listed and ignored.
+- VAAPI: Intel iHD 25.2.3; H.264 High has `EncSlice` only (no `EncSliceLP`), so the probe picks
+  `h264_vaapi` with `low_power=0`. `RENDER_MODE=auto` → `vaapi`.
+- Container Manager rejects `cpus:` and doesn't create missing bind-mount folders (`data/`, `models/` ship in the repo).
+- Silero VAD can find **no speech** in a song (singing over music) → whisper returns nothing;
+  `transcribe_task` retries once without VAD.
+- ElevenLabs Scribe with `language_code: "th"` works (returns `tha`). Thai `words[]` are single
+  characters/clusters, not words — never split segments on pauses between them (`stt_cloud.to_whisper_json`).
+- Cloud calls to Z.AI and ElevenLabs work from the NAS.
+- Proofreading bench on the NAS (built-in set): `zai:glm-5.3` 75 (7/8, 1 wrong, 24 s; run before `reasoning_effort`
+  was sent, see below); `sailor2:8b` via Ollama Vulkan on the iGPU 50 (5/8, 98.5 s, 4.9 tok/s, 2 rewrites
+  rejected; once added "(Meow)" after a name). The 245K iGPU is small — expect ~1 min per 10-cue batch for 8B.
+
 ## Testing with real API keys
 
 Keys are provided only as environment variables/secrets, never in chat: `ZAI_API_KEY`,
