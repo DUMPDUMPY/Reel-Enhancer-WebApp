@@ -10,6 +10,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   dropdown, also used when Whisper is stopped). `TRANSCRIBE_MODEL` overrides the default.
 
 ### Fixed
+- Whisper with VAD on a song could return no subtitles at all (Silero VAD found no speech in the
+  singing). If VAD finds nothing, the clip is now transcribed again without VAD, shown on the node.
 - ElevenLabs subtitles no longer split inside a Thai word (e.g. `ไห` | `น` on a held note in a song).
   Scribe returns Thai as single characters, so pauses are now split per PyThaiNLP word by the segmenter.
 - DSM Container Manager: removed the `cpus:` limit from `docker-compose.yml` (not supported there) and

@@ -52,6 +52,12 @@ def transcribe_task(job_id: str, model: str | None, vad: bool, proofread: bool, 
     else:
         with jobs.step(job_id, "whisper", (model or transcriber.current_model()).removeprefix("ggml-").removesuffix(".bin")):
             result = transcriber.transcribe(wav, hint=hint, model=model, vad=vad)
+            if vad and not build_cues(result, parse_hint_words(hint)):
+                # Silero VAD is trained on speech and can drop singing over music entirely.
+                jobs.step_update(job_id, "whisper", detail="VAD ไม่เจอเสียงพูด (อาจเป็นเพลง) กำลังถอดใหม่แบบไม่ใช้ VAD")
+                result = transcriber.transcribe(wav, hint=hint, model=model, vad=False)
+                vad = False
+                jobs.step_update(job_id, "whisper", detail="VAD ไม่เจอเสียงพูด ถอดใหม่แบบไม่ใช้ VAD แล้ว")
             (d / "whisper.json").write_text(json.dumps(result, ensure_ascii=False))
         used_model = transcriber.current_model()
 
