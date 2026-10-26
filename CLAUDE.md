@@ -68,6 +68,9 @@ FFmpeg enhance + burn subtitles at 1080×1920 → download. User-facing text is 
 - ElevenLabs Scribe with `language_code: "th"` works (returns `tha`). Thai `words[]` are single
   characters/clusters, not words — never split segments on pauses between them (`stt_cloud.to_whisper_json`).
 - Cloud calls to Z.AI and ElevenLabs work from the NAS.
+- Proofreading bench on the NAS (built-in set): `zai:glm-5.3` 75 (7/8, 1 wrong, 24 s, thinks even with
+  `thinking: disabled`); `sailor2:8b` via Ollama Vulkan on the iGPU 50 (5/8, 98.5 s, 4.9 tok/s, 2 rewrites
+  rejected; once added "(Meow)" after a name). The 245K iGPU is small — expect ~1 min per 10-cue batch for 8B.
 
 ## Testing with real API keys (pending)
 
