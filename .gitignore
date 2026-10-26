@@ -1,5 +1,8 @@
-data/
-models/
+# Keep the folders (Container Manager won't create bind-mount sources), not their contents.
+data/*
+!data/.gitkeep
+models/*
+!models/.gitkeep
 __pycache__/
 *.pyc
 .pytest_cache/

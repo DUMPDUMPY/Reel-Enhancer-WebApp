@@ -1,5 +1,7 @@
 # Synology DSM Container Manager -> Project -> Create -> point at this folder.
 # Open from your phone: http://<NAS-IP>:8000
+# ./data and ./models must exist before the first start (they ship in the repo as empty folders).
+# No `cpus:` limit: Container Manager on DSM doesn't support it; FFmpeg's CPU use is capped by CPU_THREADS.
 services:
   whisper:
     build: ./docker/whisper
@@ -55,4 +57,3 @@ services:
       - ./data:/data
       - ./models:/models:ro
     mem_limit: 4g
-    cpus: 4

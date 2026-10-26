@@ -5,6 +5,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- DSM Container Manager: removed the `cpus:` limit from `docker-compose.yml` (not supported there) and
+  ship empty `data/` and `models/` folders, which must exist before the first start.
+
 ### Added
 - **Speech-to-text via ElevenLabs Scribe** (`ELEVENLABS_API_KEY`): `elevenlabs:scribe_v2` appears in
   the model list; word timestamps are converted to the Whisper shape so segmenting, editing and

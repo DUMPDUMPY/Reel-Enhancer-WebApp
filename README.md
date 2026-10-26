@@ -18,7 +18,9 @@
 
 ## ติดตั้งบน Synology DSM (Container Manager)
 
-1. คัดลอกโฟลเดอร์โปรเจกต์นี้ไปไว้ที่ NAS เช่น `/volume2/docker/reel-enhancer`
+1. คัดลอกโฟลเดอร์โปรเจกต์นี้ไปไว้ที่ NAS เช่น `/volume2/docker/reel-enhancer` (หรือ `git clone` ผ่าน SSH หลังลงแพ็กเกจ Git Server)
+   - ต้องมีโฟลเดอร์ `data/` และ `models/` อยู่ในนั้น (มีมาให้ใน repo แล้ว ถ้าหายให้สร้างเป็นโฟลเดอร์ว่าง) เพราะ Container Manager ไม่สร้างให้เอง
+   - Container Manager ตั้งเพดาน CPU (`cpus:`) ไม่ได้ จึงไม่มีใน `docker-compose.yml` การใช้ CPU ตอนเรนเดอร์สำรองคุมด้วย `CPU_THREADS`
 2. เปิด `docker-compose.yml` แล้วตรวจค่า:
    - `OLLAMA_HOST` ค่าเริ่มต้นคือ `http://host.docker.internal:11434` ถ้าเชื่อมไม่ได้ ให้เปลี่ยนเป็น IP ของ NAS เช่น `http://192.168.1.4:11434`
    - `OLLAMA_MODEL` ต้องเป็นโมเดลที่**สร้างข้อความได้** (โมเดล embedding ใช้ไม่ได้) เช่น `gemma3:4b`, `qwen2.5:3b`
