@@ -6,6 +6,7 @@ import threading
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
@@ -230,6 +231,7 @@ class CuesRequest(BaseModel):
     hint: str | None = None
     style: dict | None = None
     render_options: dict | None = None
+    burn_subs: bool | None = None  # False = enhance-only render, cues are kept but not burned in
 
 
 def _normalize_cues(cues: list[Cue], duration: float) -> list[dict]:
@@ -256,6 +258,8 @@ def _save_edits(job_id: str, req: CuesRequest) -> dict:
         fields["style"] = subtitles.SubtitleStyle.from_dict(req.style).to_dict()
     if req.render_options is not None:
         fields["render_options"] = renderer.RenderOptions.from_dict(req.render_options).__dict__
+    if req.burn_subs is not None:
+        fields["burn_subs"] = req.burn_subs
     return jobs.update(job_id, **fields)
 
 
@@ -305,6 +309,16 @@ def thumb(job_id: str) -> FileResponse:
 def subs_vtt(job_id: str) -> PlainTextResponse:
     job = _job_or_404(job_id)
     return PlainTextResponse(subtitles.build_vtt(job.get("cues") or []), media_type="text/vtt")
+
+
+@app.get("/api/jobs/{job_id}/subs.srt")
+def subs_srt(job_id: str) -> PlainTextResponse:
+    job = _job_or_404(job_id)
+    stem = Path(job.get("filename") or "reel").stem[:60] or "reel"
+    return PlainTextResponse(
+        subtitles.build_srt(job.get("cues") or []), media_type="application/x-subrip",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(stem)}.srt"},
+    )
 
 
 @app.get("/api/jobs/{job_id}/output")

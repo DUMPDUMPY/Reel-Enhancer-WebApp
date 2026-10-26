@@ -137,6 +137,18 @@ def _vtt_time(t: float) -> str:
     return f"{h:02d}:{m:02d}:{s:02d}.{ms:03d}"
 
 
+def build_srt(cues: list[dict]) -> str:
+    """For the subtitles-only flow: SRT imports into CapCut, TikTok and most editors."""
+    out, n = [], 0
+    for c in sorted(cues, key=lambda c: float(c["start"])):
+        text = (c.get("text") or "").strip()
+        if text:
+            n += 1
+            start, end = (_vtt_time(float(c[k])).replace(".", ",") for k in ("start", "end"))
+            out += [str(n), f"{start} --> {end}", text, ""]
+    return "\n".join(out)
+
+
 def build_vtt(cues: list[dict]) -> str:
     out = ["WEBVTT", ""]
     for c in sorted(cues, key=lambda c: float(c["start"])):

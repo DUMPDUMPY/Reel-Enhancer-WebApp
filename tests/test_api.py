@@ -209,3 +209,24 @@ def test_index_versions_assets(client):
     v = client.get("/api/system").json()["version"]
     html = client.get("/").text
     assert f'src="app.js?v={v}"' in html and f'href="style.css?v={v}"' in html
+
+
+def test_enhance_only_render_skips_subs_and_srt_download(client, tmp_path):
+    clip = make_clip(tmp_path / "c.mp4", size="360x640", seconds=1)
+    with open(clip, "rb") as f:
+        jid = client.post("/api/jobs", files={"file": ("ภาพ.mp4", f, "video/mp4")}).json()["id"]
+    cues = [{"start": 0.1, "end": 0.8, "text": "สวัสดี"}]
+
+    r = client.get(f"/api/jobs/{jid}/subs.srt")
+    assert r.status_code == 200 and r.text == ""
+    client.put(f"/api/jobs/{jid}/cues", json={"cues": cues})
+    r = client.get(f"/api/jobs/{jid}/subs.srt")
+    assert r.text.startswith("1\n00:00:00,100 --> 00:00:00,800\nสวัสดี")
+    assert "attachment" in r.headers["content-disposition"]
+
+    client.post(f"/api/jobs/{jid}/render", json={"cues": cues, "burn_subs": False})
+    job = wait(client, jid, 120)
+    assert job["task"]["state"] == "done", job["task"]
+    nodes = {n["key"]: n for n in job["task"]["steps"]}
+    assert nodes["ass"]["state"] == "skipped"
+    assert job["cues"][0]["text"] == "สวัสดี"  # kept for later, just not burned in

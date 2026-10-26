@@ -166,6 +166,8 @@ input[type=color] { width: 40px; height: 34px; padding: 2px; }
 .empty { color: var(--muted); font-size: 14px; }
 .warn { color: var(--accent2); font-size: 14px; }
 
+#btn-srt { display: flex; width: 100%; margin-top: 10px; }
+.modes .switch { margin: 6px 0; }
 .style-box { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
 .style-box summary { cursor: pointer; font-weight: 500; }
 .swatches { display: flex; gap: 6px; align-items: center; }

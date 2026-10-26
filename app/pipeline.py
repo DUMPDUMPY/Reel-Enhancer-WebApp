@@ -116,9 +116,13 @@ def render_task(job_id: str) -> None:
     t0 = time.time()
 
     with jobs.step(job_id, "ass"):
-        cues = job.get("cues") or []
+        burn = job.get("burn_subs", True)
+        cues = (job.get("cues") or []) if burn else []
         ass = subtitles.build_ass(cues, style, d / "subs.ass", parse_hint_words(job.get("hint", "")))
-        jobs.step_update(job_id, "ass", detail=f"{len(cues)} ท่อน · {style.font} {style.size}px")
+        if burn:
+            jobs.step_update(job_id, "ass", detail=f"{len(cues)} ท่อน · {style.font} {style.size}px")
+        else:
+            jobs.step_update(job_id, "ass", "skipped", detail="ไม่ฝังซับ (Enhance อย่างเดียว)")
 
     with jobs.step(job_id, "hw"):
         caps = renderer.detect_caps()
