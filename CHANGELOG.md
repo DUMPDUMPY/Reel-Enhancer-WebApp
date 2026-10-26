@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- **Settings and API keys moved to `.env`** (copy from `.env.example`). `docker-compose.yml` loads it with
+  `env_file`, so `git pull` no longer conflicts with local settings and keys are never baked into the image.
+  Existing installs: copy the values you set in `docker-compose.yml` into `.env` once.
+
 ### Fixed
 - OpenRouter with a key but no `OPENROUTER_MODELS` showed nothing; the model dropdown now says what to set.
 - After an update the phone could keep showing the old page (e.g. no delete buttons) from its cache:

@@ -111,6 +111,8 @@ There is no iGPU in CI/dev containers: VAAPI and Vulkan paths can only be verifi
 
 - Match the existing style: small modules, type hints, short docstrings explaining *why*.
 - User-facing strings (UI, errors, node labels) in Thai; code, comments and commits in English.
-- Config only through env vars in `app/config.py` (documented in README + `docker-compose.yml`).
+- Config only through env vars in `app/config.py`, documented in README + `.env.example`. Users set them in
+  `.env` (git-ignored, loaded by `env_file` in `docker-compose.yml`) so `git pull` never conflicts; don't put
+  user settings back into `docker-compose.yml`. Keep `.env.example` comments on their own lines.
 - Update `CHANGELOG.md` (Unreleased section) with every user-visible change.
 - Fonts in `fonts/` are OFL; keep the license files next to them.
