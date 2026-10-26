@@ -28,3 +28,9 @@ def test_wrap_never_splits_inside_a_word():
 
 def test_wrap_respects_user_line_breaks():
     assert wrap_lines("สวัสดี\nครับ", 20) == ["สวัสดี", "ครับ"]
+
+
+def test_wrap_does_not_split_word_newmm_tokenizes_badly():
+    # newmm gives ตั้ง|ใจมา here; the line must not end in the middle of ตั้งใจ.
+    lines = wrap_lines("วันนี้กุ๊กไก่ตั้งใจมาทำบุญที่วัดค่ะ", 20, 2, ("กุ๊กไก่",))
+    assert not lines[0].endswith("ตั้ง") and "".join(lines) == "วันนี้กุ๊กไก่ตั้งใจมาทำบุญที่วัดค่ะ"

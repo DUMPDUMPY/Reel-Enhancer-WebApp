@@ -96,6 +96,7 @@ curl http://<IP-NAS>:8000/api/system
 - `PROOFREAD_MODEL` ตั้งค่าเริ่มต้นได้ ถ้าว่างไว้ ระบบจะใช้ผู้ให้บริการตัวแรกที่มี key แล้วค่อยถอยไปใช้ Ollama
 - ข้อความซับ (ไม่ใช่วิดีโอหรือเสียง) จะถูกส่งไปยังผู้ให้บริการนั้น
 - ใช้หน้า **ทดสอบโมเดล** เทียบ API กับ Ollama ด้วยชุดทดสอบเดียวกันได้ก่อนเลือกใช้จริง
+- เมื่อ Ollama โหลดโมเดลค้างไว้ในแรม ใต้แถบด้านบนจะขึ้น **🧠 Ollama ใช้แรมอยู่** พร้อมขนาด กด **⏹ หยุด** เพื่อเอาโมเดลออกจากแรมทันที (ไม่ต้องรอหมดเวลา keep-alive)
 
 ## การตั้งค่า (environment ใน docker-compose.yml)
 
@@ -103,7 +104,8 @@ curl http://<IP-NAS>:8000/api/system
 |---|---|---|
 | `WHISPER_MODEL` | `ggml-large-v3-q5_0.bin` | โมเดลถอดเสียง (ต้องตั้งให้ตรงกันทั้ง 2 service) |
 | `ZAI_API_KEY`, `TYPHOON_API_KEY`, ... | – | API key สำหรับตรวจคำผิดผ่าน cloud (ดูหัวข้อด้านบน) |
-| `PROOFREAD_MODEL` | (ว่าง) | โมเดลตรวจคำเริ่มต้น เช่น `zai:glm-5.3` |
+| `TRANSCRIBE_MODEL` | (ว่าง) | โมเดลถอดเสียงเริ่มต้น ว่างไว้ = `elevenlabs:scribe_v2` ถ้ามี key ไม่งั้นใช้ Whisper |
+| `PROOFREAD_MODEL` | (ว่าง) | โมเดลตรวจคำเริ่มต้น เช่น `zai:glm-5.3` ถ้าเป็นโมเดล cloud ช่อง "ให้ AI ช่วยตรวจคำผิด" จะติ๊กไว้ให้ |
 | `OLLAMA_HOST` / `OLLAMA_MODEL` | host.docker.internal / `gemma3:4b` | ปล่อย `OLLAMA_HOST` ว่างเพื่อซ่อน Ollama |
 | `PROOFREAD_BATCH` / `OLLAMA_TIMEOUT` | `10` / `300` | ส่งซับให้ AI ตรวจทีละกี่ท่อน และรอแต่ละชุดได้นานสุดกี่วินาที (ชุดที่ล้มเหลวจะข้ามไป ชุดอื่นยังใช้ได้) |
 | `RENDER_MODE` | `auto` | `auto` / `vaapi` / `cpu` |

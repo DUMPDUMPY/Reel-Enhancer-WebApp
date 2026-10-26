@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from app import bench, config, jobs, pipeline
-from app.services import media, proofreader, renderer, stt_cloud, subtitles, transcriber
+from app.services import llm, media, proofreader, renderer, stt_cloud, subtitles, transcriber
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("app")
@@ -80,6 +80,31 @@ def system() -> dict:
 def hwcheck() -> dict:
     caps = renderer.detect_caps(force=True)
     return {"mode": caps.mode, "low_power": caps.low_power, "detail": caps.detail}
+
+
+# ---------- Ollama memory ----------
+
+@app.get("/api/ollama/loaded")
+def ollama_loaded() -> dict:
+    return llm.ollama_loaded()
+
+
+class UnloadRequest(BaseModel):
+    model: str | None = None  # None: every loaded model
+
+
+@app.post("/api/ollama/unload")
+def ollama_unload(req: UnloadRequest) -> dict:
+    info = llm.ollama_loaded()
+    if not info["ok"]:
+        raise HTTPException(503, info["error"])
+    names = [req.model] if req.model else [m["name"] for m in info["models"]]
+    for name in names:
+        try:
+            llm.unload_now(name)
+        except RuntimeError as e:
+            raise HTTPException(502, str(e))
+    return llm.ollama_loaded()
 
 
 @app.get("/fonts/{name}")
@@ -178,7 +203,8 @@ def transcribe(job_id: str, req: TranscribeRequest) -> dict:
     _ensure_idle(job)
     if req.hint is not None:
         jobs.update(job_id, hint=req.hint.strip())
-    jobs.submit(job_id, "transcribe", pipeline.TRANSCRIBE_NODES, pipeline.transcribe_task, req.model, req.vad, req.proofread, req.llm_model)
+    model = req.model or stt_cloud.default_model()
+    jobs.submit(job_id, "transcribe", pipeline.TRANSCRIBE_NODES, pipeline.transcribe_task, model, req.vad, req.proofread, req.llm_model)
     return jobs.load(job_id)
 
 

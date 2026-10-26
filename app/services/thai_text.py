@@ -42,10 +42,24 @@ def tokenize(text: str, extra_words: tuple[str, ...] = ()) -> list[str]:
     return word_tokenize(text, custom_dict=_trie(extra_words), engine="newmm", keep_whitespace=True)
 
 
-def _balanced_split(words: list[str]) -> tuple[str, str]:
+def _straddles_word(text: str, pos: int, words: frozenset[str]) -> bool:
+    """True if a dictionary word spans `pos`. newmm sometimes tokenizes "ตั้งใจมา" as
+    ตั้ง|ใจมา, and breaking there would split ตั้งใจ across two lines."""
+    for a in range(max(0, pos - 10), pos):
+        for b in range(pos + 1, min(len(text), pos + 10) + 1):
+            if text[a:b] in words:
+                return True
+    return False
+
+
+def _balanced_split(words: list[str], extra_words: tuple[str, ...] = ()) -> tuple[str, str]:
     """Split one line into two at the word boundary that best balances their widths."""
     best = None
+    text = "".join(words)
+    vocab = _base_words() | frozenset(extra_words)
+    pos = 0
     for i in range(1, len(words)):
+        pos += len(words[i - 1])
         left, right = "".join(words[:i]).strip(), "".join(words[i:]).strip()
         if not left or not right:
             continue
@@ -53,6 +67,8 @@ def _balanced_split(words: list[str]) -> tuple[str, str]:
         # Prefer breaking at a space (Thai uses spaces between phrases).
         if words[i - 1].isspace() or words[i].isspace():
             score -= 3
+        elif _straddles_word(text, pos, vocab):
+            score += 8
         if best is None or score < best[0]:
             best = (score, left, right)
     if best is None:
@@ -78,7 +94,7 @@ def wrap_lines(text: str, max_width: int, max_lines: int = 2, extra_words: tuple
             continue
         words = tokenize(raw, extra_words)
         if display_width(raw) <= max_width * 2 and len(out) + 2 <= max_lines:
-            left, right = _balanced_split(words)
+            left, right = _balanced_split(words, extra_words)
             if display_width(left) <= max_width and display_width(right) <= max_width:
                 out.extend(x for x in (left, right) if x)
                 continue

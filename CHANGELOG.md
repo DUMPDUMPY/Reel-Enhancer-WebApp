@@ -5,10 +5,6 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
-### Changed
-- **ElevenLabs is the default speech-to-text** when `ELEVENLABS_API_KEY` is set (listed first in the
-  dropdown, also used when Whisper is stopped). `TRANSCRIBE_MODEL` overrides the default.
-
 ### Fixed
 - Proofreading a long clip (e.g. a 3-minute song, ~40 cues) with an 8B Ollama model timed out after
   2 minutes. Cues are now sent in batches of `PROOFREAD_BATCH` (10) with per-batch progress on the
@@ -23,6 +19,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - **Delete jobs** from the recent-jobs list (🗑 per job, or "ลบงานทั้งหมด") to free disk space; each job
   shows its size on disk and the list header shows the total. Comparison runs can be deleted too.
+- **Cloud-first defaults**: with `ELEVENLABS_API_KEY` set, `elevenlabs:scribe_v2` is the default
+  speech-to-text model (override with `TRANSCRIBE_MODEL`); cloud providers are listed before Ollama, and
+  "AI proofreading" is ticked by default when the default proofreading model is a cloud one.
+- **Free Ollama RAM from the UI**: models Ollama keeps loaded are shown under the top bar with their
+  size and a ⏹ stop button (or stop all), which unloads them right away (`/api/ollama/loaded`, `/api/ollama/unload`).
 - **Speech-to-text via ElevenLabs Scribe** (`ELEVENLABS_API_KEY`): `elevenlabs:scribe_v2` appears in
   the model list; word timestamps are converted to the Whisper shape so segmenting, editing and
   rendering are unchanged. Hint words are sent as `keyterms` (`ELEVENLABS_KEYTERMS=0` to disable).
@@ -49,6 +50,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   that refuse `thinking: disabled` are retried the same way. Default Z.AI model is now `glm-5.3`
   (100 on the built-in test set; `glm-5.3-flash` 50–88).
 ### Fixed
+- Line breaks no longer split a word when PyThaiNLP tokenizes it oddly (e.g. ตั้ง|ใจมา): breaks
+  where a dictionary word spans the gap are avoided.
 - ElevenLabs transcripts no longer lose real lines such as "อย่าลืมกดติดตาม…": the Whisper
   outro-hallucination filter is skipped for Scribe segments.
 

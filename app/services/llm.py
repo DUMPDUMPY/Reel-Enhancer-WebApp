@@ -177,6 +177,7 @@ def status(force: bool = False) -> dict:
             "key": p.key, "name": p.name, "local": p.is_ollama, "enabled": p.enabled,
             **info, "models": [ref(p, m) for m in info["models"]],
         })
+    out.sort(key=lambda x: x["local"])  # cloud first: it's the default when a key is set
     any_ok = any(x["ok"] and x["models"] for x in out)
     return {"ok": any_ok, "providers": out, "default_model": default_model()}
 
@@ -263,6 +264,35 @@ def chat_json(model_ref: str, system: str, user: str, schema: dict, timeout: flo
         return json.loads(_extract_json(content)), stats
     except ValueError as e:
         raise ValueError(f"โมเดลตอบไม่เป็น JSON: {e}") from e
+
+
+def ollama_loaded() -> dict:
+    """Models Ollama holds in RAM/VRAM right now (/api/ps), so the user can free them."""
+    p = PROVIDERS["ollama"]
+    if not p.enabled:
+        return {"ok": False, "error": "ปิดใช้งาน Ollama", "models": []}
+    try:
+        r = httpx.get(f"{p.base_url}/api/ps", timeout=4)
+        r.raise_for_status()
+        models = [
+            {"name": m.get("name") or m.get("model", ""), "size": m.get("size") or 0,
+             "size_vram": m.get("size_vram") or 0, "expires_at": m.get("expires_at")}
+            for m in r.json().get("models") or []
+        ]
+        return {"ok": True, "error": "", "models": models}
+    except (httpx.HTTPError, ValueError) as e:
+        return {"ok": False, "error": f"เชื่อมต่อ Ollama ไม่ได้: {e}", "models": []}
+
+
+def unload_now(name: str) -> None:
+    """Unload one Ollama model and report failures (the user pressed stop and wants to know)."""
+    p = PROVIDERS["ollama"]
+    try:
+        r = httpx.post(f"{p.base_url}/api/generate", json={"model": name, "keep_alive": 0}, timeout=30)
+    except httpx.HTTPError as e:
+        raise RuntimeError(f"สั่ง Ollama หยุด {name} ไม่ได้: {e}") from e
+    if r.status_code >= 400:
+        raise RuntimeError(f"Ollama ตอบ {r.status_code}: {r.text[:200]}")
 
 
 def unload(model_ref: str) -> None:
