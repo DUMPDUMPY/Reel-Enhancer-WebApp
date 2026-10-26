@@ -203,3 +203,9 @@ def test_ui_files_are_revalidated(client):
     for path in ("/", "/app.js", "/style.css"):
         assert client.get(path).headers["cache-control"] == "no-cache"
     assert "no-cache" not in client.get("/api/jobs").headers.get("cache-control", "")
+
+
+def test_index_versions_assets(client):
+    v = client.get("/api/system").json()["version"]
+    html = client.get("/").text
+    assert f'src="app.js?v={v}"' in html and f'href="style.css?v={v}"' in html

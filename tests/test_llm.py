@@ -98,3 +98,9 @@ def test_glm53_gets_reasoning_effort_up_front(monkeypatch):
     assert p.body_for("glm-5.3-flash")["reasoning_effort"] == "high"
     assert p.body_for("glm-5.3")["thinking"] == {"type": "enabled"}
     assert p.body_for("glm-4.7-flash") == {"thinking": {"type": "disabled"}}
+
+
+def test_curated_provider_without_models_says_what_to_set():
+    p = llm.Provider("openrouter", "OpenRouter", "https://x", "key", curated=True)
+    info = llm._list_models(p)
+    assert info["ok"] is False and "OPENROUTER_MODELS" in info["status"]
