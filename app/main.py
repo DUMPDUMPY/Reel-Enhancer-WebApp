@@ -43,6 +43,16 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title="Reel Enhancer", lifespan=lifespan)
 
 
+@app.middleware("http")
+async def revalidate_ui(request, call_next):
+    """Make browsers recheck the page/JS/CSS (cheap 304 via ETag), so a rebuild shows up without
+    clearing the phone's cache. API responses and fonts set their own caching."""
+    response = await call_next(request)
+    if not request.url.path.startswith(("/api/", "/fonts/")):
+        response.headers.setdefault("Cache-Control", "no-cache")
+    return response
+
+
 def _job_or_404(job_id: str) -> dict:
     try:
         return jobs.load(job_id)

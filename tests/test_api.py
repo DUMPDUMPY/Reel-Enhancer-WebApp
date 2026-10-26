@@ -197,3 +197,9 @@ def test_ollama_loaded_and_unload(client, monkeypatch):
 def test_ollama_offline_unload_is_503(client):
     assert client.get("/api/ollama/loaded").json()["ok"] is False
     assert client.post("/api/ollama/unload", json={"model": "x"}).status_code == 503
+
+
+def test_ui_files_are_revalidated(client):
+    for path in ("/", "/app.js", "/style.css"):
+        assert client.get(path).headers["cache-control"] == "no-cache"
+    assert "no-cache" not in client.get("/api/jobs").headers.get("cache-control", "")

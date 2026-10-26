@@ -88,7 +88,7 @@ Keys are provided only as environment variables/secrets, never in chat: `ZAI_API
   `glm-5.3` and `glm-5.3-flash` (other models → 1113/1314; Coding Plan keys are separate from
   Standard keys since 2026-10-16). GLM 5.3 always thinks: the Coding Plan endpoint silently ignores
   `thinking: disabled` (the Standard endpoint rejects it with 1210), so `llm` sends
-  `reasoning_effort` (`ZAI_REASONING_EFFORT`, low/high/max, default max) up front for `glm-5.3*`.
+  `reasoning_effort` (`ZAI_REASONING_EFFORT`, low/high/max, default high — same score as max, fewer tokens) up front for `glm-5.3*`.
   Built-in set, 3 runs each: glm-5.3 max 100 (15 s), high 100 (13 s), low 88/88/100 (5–6 s);
   glm-5.3-flash max 50/88/88, high 62/75/75, low 50–88. No over-edits of slang from either.
   Reference, CPU Ollama: sailor2:8b 62, gemma3:4b 50, Typhoon 2.5 4B 50, Typhoon 2.1 4B 38,

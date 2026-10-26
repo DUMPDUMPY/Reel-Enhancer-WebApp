@@ -41,7 +41,7 @@ services:
       # Set a key to use that provider; the NAS then doesn't run any LLM itself.
       - ZAI_API_KEY=                 # Z.AI GLM Coding Plan key (glm-5.3, glm-5.3-flash)
       # - ZAI_BASE_URL=https://api.z.ai/api/paas/v4   # pay-as-you-go key instead of Coding Plan
-      # - ZAI_REASONING_EFFORT=max   # low | high | max, for GLM 5.3 (always thinks)
+      # - ZAI_REASONING_EFFORT=high  # low | high | max, for GLM 5.3 (always thinks; max uses the most tokens)
       - TYPHOON_API_KEY=             # opentyphoon.ai (Thai): typhoon-v2.5-30b-a3b-instruct
       - OPENROUTER_API_KEY=          # with OPENROUTER_MODELS=model-a,model-b
       - GEMINI_API_KEY=

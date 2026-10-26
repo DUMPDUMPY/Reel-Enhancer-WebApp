@@ -66,7 +66,8 @@ def _build() -> dict[str, Provider]:
             # GLM 4.5+ think before answering by default; spelling fixes don't need it.
             extra_body={"thinking": {"type": "disabled"}},
             # GLM 5.3 always thinks and rejects "disabled" (error 1210); it takes an effort instead.
-            thinking_body={"thinking": {"type": "enabled"}, "reasoning_effort": e("ZAI_REASONING_EFFORT", "max")},
+            # "high" scored the same as "max" on the bench (100) with fewer reasoning tokens.
+            thinking_body={"thinking": {"type": "enabled"}, "reasoning_effort": e("ZAI_REASONING_EFFORT", "high")},
             always_think_re=r"glm-5\.3",
         ),
         Provider(
