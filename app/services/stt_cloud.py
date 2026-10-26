@@ -64,6 +64,9 @@ def to_whisper_json(data: dict, pause_split: float = config.PAUSE_SPLIT_SECONDS)
             segments.append({
                 "text": "".join(w["word"] for w in cur),
                 "start": cur[0]["start"], "end": cur[-1]["end"], "words": cur,
+                # Scribe tags non-speech as audio events instead of inventing outro phrases,
+                # so the segmenter must not drop real lines like "อย่าลืมกดติดตาม".
+                "source": "elevenlabs",
             })
         cur = []
 

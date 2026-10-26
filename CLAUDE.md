@@ -68,23 +68,31 @@ FFmpeg enhance + burn subtitles at 1080×1920 → download. User-facing text is 
 - ElevenLabs Scribe with `language_code: "th"` works (returns `tha`). Thai `words[]` are single
   characters/clusters, not words — never split segments on pauses between them (`stt_cloud.to_whisper_json`).
 - Cloud calls to Z.AI and ElevenLabs work from the NAS.
-- Proofreading bench on the NAS (built-in set): `zai:glm-5.3` 75 (7/8, 1 wrong, 24 s, thinks even with
-  `thinking: disabled`); `sailor2:8b` via Ollama Vulkan on the iGPU 50 (5/8, 98.5 s, 4.9 tok/s, 2 rewrites
+- Proofreading bench on the NAS (built-in set): `zai:glm-5.3` 75 (7/8, 1 wrong, 24 s; run before `reasoning_effort`
+  was sent, see below); `sailor2:8b` via Ollama Vulkan on the iGPU 50 (5/8, 98.5 s, 4.9 tok/s, 2 rewrites
   rejected; once added "(Meow)" after a name). The 245K iGPU is small — expect ~1 min per 10-cue batch for 8B.
 
-## Testing with real API keys (pending)
+## Testing with real API keys
 
 Keys are provided only as environment variables/secrets, never in chat: `ZAI_API_KEY`,
-`ELEVENLABS_API_KEY`. Not yet verified against the live APIs:
-1. Proofreading: run the app locally with `ZAI_API_KEY`, open the "ทดสอบโมเดล" tab and compare
-   `zai:glm-4.7-flash` / `zai:glm-4.5-flash` on the built-in test set (check thinking is off and
-   JSON comes back complete). Reference scores on the same set, CPU Ollama: sailor2:8b 62,
-   gemma3:4b 50, Typhoon 2.5 4B 50, Typhoon 2.1 4B 38, qwen2.5:3b 0 (wrong edits).
-2. Speech-to-text: there is no Thai test audio in the repo. Generate it with ElevenLabs TTS
-   (`POST /v1/text-to-speech/{voice_id}`, multilingual model) from the test-set sentences, then
-   transcribe with `elevenlabs:scribe_v2` and compare timing/text with whisper.cpp
-   (`ggml-large-v3-q5_0.bin` from Hugging Face; build whisper-server per `docker/whisper/Dockerfile`).
-3. Confirm Scribe's `language_code` "th" and `keyterms` are accepted for Thai.
+`ELEVENLABS_API_KEY`. Results so far (2026-10-25):
+- **ElevenLabs Scribe — verified.** Test audio: `eleven_v3` TTS of the bench sentences
+  (`eleven_multilingual_v2` rejects `language_code: th`). `language_code: "th"` and `keyterms` are
+  accepted (response `language_code: "tha"`). 12/14 sentences exact (the 2 misses are TTS saying
+  นะ/มาก for the slang), segment timing within ~0.1–0.16 s of the reference, ~3.5 s per 36 s clip.
+  whisper.cpp large-v3-q5_0 (CPU, VAD) on the same audio: 5/14 exact, name errors (กุ้งไก่, โมจิว),
+  without a hint its segments merge two sentences and cue timing is off by ~0.55 s.
+- **Open:** Whisper's `HALLUCINATIONS` list drops real lines like "อย่าลืมกดติดตามกันด้วยนะ"
+  (seen with the hint on). Needs real hallucination samples to tune `no_speech_prob`/`avg_logprob`.
+- **Z.AI — verified (Coding Plan key).** Endpoint `/api/coding/paas/v4`; the plan covers only
+  `glm-5.3` and `glm-5.3-flash` (other models → 1113/1314; Coding Plan keys are separate from
+  Standard keys since 2026-10-16). GLM 5.3 always thinks: the Coding Plan endpoint silently ignores
+  `thinking: disabled` (the Standard endpoint rejects it with 1210), so `llm` sends
+  `reasoning_effort` (`ZAI_REASONING_EFFORT`, low/high/max, default max) up front for `glm-5.3*`.
+  Built-in set, 3 runs each: glm-5.3 max 100 (15 s), high 100 (13 s), low 88/88/100 (5–6 s);
+  glm-5.3-flash max 50/88/88, high 62/75/75, low 50–88. No over-edits of slang from either.
+  Reference, CPU Ollama: sailor2:8b 62, gemma3:4b 50, Typhoon 2.5 4B 50, Typhoon 2.1 4B 38,
+  qwen2.5:3b 0 (wrong edits).
 
 ## Commands
 

@@ -39,7 +39,9 @@ services:
       - TRANSCRIBE_MODEL=
       # --- AI proofreading (optional): cloud API with a key, or local Ollama ---
       # Set a key to use that provider; the NAS then doesn't run any LLM itself.
-      - ZAI_API_KEY=                 # Z.AI GLM  (models: glm-4.7-flash, glm-4.5-flash, ...)
+      - ZAI_API_KEY=                 # Z.AI GLM Coding Plan key (glm-5.3, glm-5.3-flash)
+      # - ZAI_BASE_URL=https://api.z.ai/api/paas/v4   # pay-as-you-go key instead of Coding Plan
+      # - ZAI_REASONING_EFFORT=max   # low | high | max, for GLM 5.3 (always thinks)
       - TYPHOON_API_KEY=             # opentyphoon.ai (Thai): typhoon-v2.5-30b-a3b-instruct
       - OPENROUTER_API_KEY=          # with OPENROUTER_MODELS=model-a,model-b
       - GEMINI_API_KEY=

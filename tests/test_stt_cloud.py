@@ -24,6 +24,13 @@ def test_scribe_to_whisper_shape_and_cues():
     assert cues[-1]["text"] == "สวัสดีครับ" and cues[-1]["start"] == 5.0
 
 
+def test_scribe_keeps_real_subscribe_line():
+    # Whisper's outro-hallucination filter must not drop a line Scribe actually heard.
+    data = {"words": [{"text": "อย่าลืมกดติดตามกันด้วยนะ", "type": "word", "start": 0.5, "end": 2.0}]}
+    cues = build_cues(stt_cloud.to_whisper_json(data))
+    assert [c["text"].replace("\n", "") for c in cues] == ["อย่าลืมกดติดตามกันด้วยนะ"]
+
+
 def test_transcribe_request(monkeypatch, tmp_path):
     monkeypatch.setattr(config, "ELEVENLABS_API_KEY", "k")
     wav = tmp_path / "a.wav"
