@@ -71,7 +71,8 @@ curl http://<IP-NAS>:8000/api/system
 
 ## ถอดเสียงด้วย ElevenLabs Scribe (ไม่ต้องรัน Whisper บน NAS)
 
-ใส่ `ELEVENLABS_API_KEY` ใน `docker-compose.yml` แล้ว dropdown "โมเดลถอดเสียง" จะมี `elevenlabs:scribe_v2` อยู่ในกลุ่ม Cloud API
+ใส่ `ELEVENLABS_API_KEY` ใน `docker-compose.yml` แล้ว `elevenlabs:scribe_v2` จะเป็นโมเดลถอดเสียงเริ่มต้น (อยู่บนสุดของ dropdown ในกลุ่ม Cloud API)
+ถ้าอยากให้เริ่มต้นที่ Whisper บน NAS ให้ตั้ง `STT_MODEL=ggml-large-v3-q5_0.bin`
 - ส่งเฉพาะไฟล์เสียง (16 kHz mono) ไปถอดเสียงพร้อมเวลาระดับคำ จากนั้นจัดท่อนซับบน NAS ด้วยวิธีเดียวกับ Whisper
 - ชื่อในช่อง hint จะถูกส่งเป็น `keyterms` เพื่อให้สะกดชื่อถูก (ElevenLabs คิดเพิ่ม 20%) ปิดได้ด้วย `ELEVENLABS_KEYTERMS=0`
 - ถ้าไม่ได้ใส่ key ทุกอย่างจะทำงานบน iGPU เหมือนเดิม
@@ -92,6 +93,7 @@ curl http://<IP-NAS>:8000/api/system
 - `PROOFREAD_MODEL` ตั้งค่าเริ่มต้นได้ ถ้าว่างไว้ ระบบจะใช้ผู้ให้บริการตัวแรกที่มี key แล้วค่อยถอยไปใช้ Ollama
 - ข้อความซับ (ไม่ใช่วิดีโอหรือเสียง) จะถูกส่งไปยังผู้ให้บริการนั้น
 - ใช้หน้า **ทดสอบโมเดล** เทียบ API กับ Ollama ด้วยชุดทดสอบเดียวกันได้ก่อนเลือกใช้จริง
+- เมื่อ Ollama โหลดโมเดลค้างไว้ในแรม ใต้แถบด้านบนจะขึ้น **🧠 Ollama ใช้แรมอยู่** พร้อมขนาด กด **⏹ หยุด** เพื่อเอาโมเดลออกจากแรมทันที (ไม่ต้องรอหมดเวลา keep-alive)
 
 ## การตั้งค่า (environment ใน docker-compose.yml)
 
@@ -99,7 +101,8 @@ curl http://<IP-NAS>:8000/api/system
 |---|---|---|
 | `WHISPER_MODEL` | `ggml-large-v3-q5_0.bin` | โมเดลถอดเสียง (ต้องตั้งให้ตรงกันทั้ง 2 service) |
 | `ZAI_API_KEY`, `TYPHOON_API_KEY`, ... | – | API key สำหรับตรวจคำผิดผ่าน cloud (ดูหัวข้อด้านบน) |
-| `PROOFREAD_MODEL` | (ว่าง) | โมเดลตรวจคำเริ่มต้น เช่น `zai:glm-5.3` |
+| `STT_MODEL` | (ว่าง) | โมเดลถอดเสียงเริ่มต้น ว่างไว้ = `elevenlabs:scribe_v2` ถ้ามี key ไม่งั้นใช้ Whisper |
+| `PROOFREAD_MODEL` | (ว่าง) | โมเดลตรวจคำเริ่มต้น เช่น `zai:glm-5.3` ถ้าเป็นโมเดล cloud ช่อง "ให้ AI ช่วยตรวจคำผิด" จะติ๊กไว้ให้ |
 | `OLLAMA_HOST` / `OLLAMA_MODEL` | host.docker.internal / `gemma3:4b` | ปล่อย `OLLAMA_HOST` ว่างเพื่อซ่อน Ollama |
 | `RENDER_MODE` | `auto` | `auto` / `vaapi` / `cpu` |
 | `VIDEO_BITRATE` / `VIDEO_MAXRATE` | `12M` / `15M` | bitrate ของไฟล์ที่ได้ |

@@ -23,6 +23,13 @@ def models() -> list[str]:
     return [PREFIX + config.ELEVENLABS_STT_MODEL] if enabled() else []
 
 
+def default_model() -> str | None:
+    """STT_MODEL, else Scribe when its key is set (cloud first), else None = Whisper's current model."""
+    if config.STT_MODEL:
+        return config.STT_MODEL
+    return models()[0] if enabled() else None
+
+
 def is_cloud(model: str | None) -> bool:
     return bool(model) and model.startswith(PREFIX)
 

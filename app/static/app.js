@@ -72,19 +72,24 @@ async function loadSystem() {
     chip(s.llm.ok, "AI ตรวจคำ " + (s.llm.ok ? "✓" : "✗")) +
     chip(s.render.mode === "vaapi", s.render.mode === "vaapi" ? "Render iGPU" : "Render CPU");
 
+  // Cloud first: it's the default whenever an API key is set.
   const models = s.whisper.models.length ? s.whisper.models : [s.whisper.current];
+  const opt = (m) => `<option value="${esc(m)}" ${m === s.stt_default ? "selected" : ""}>${esc(m)}</option>`;
   $("#model").innerHTML =
-    `<optgroup label="Whisper บน iGPU (NAS)">` +
-    models.map((m) => `<option value="${esc(m)}" ${m === s.whisper.current ? "selected" : ""}>${esc(m)}</option>`).join("") +
-    `</optgroup>` +
-    (s.stt_cloud.models.length
-      ? `<optgroup label="Cloud API">` + s.stt_cloud.models.map((m) => `<option value="${esc(m)}">${esc(m)}</option>`).join("") + `</optgroup>`
-      : "");
+    (s.stt_cloud.models.length ? `<optgroup label="Cloud API">` + s.stt_cloud.models.map(opt).join("") + `</optgroup>` : "") +
+    `<optgroup label="Whisper บน iGPU (NAS)">` + models.map(opt).join("") + `</optgroup>`;
 
   $("#llm-model").innerHTML = llmOptions(s.llm);
   $("#proofread").disabled = !s.llm.ok;
   $("#btn-proofread").disabled = !s.llm.ok;
   if (!s.llm.ok) $("#proofread").checked = false;
+  // Proofreading with a cloud model is fast and costs no NAS RAM, so it's on by default.
+  if (!state.proofreadInited && s.llm.ok) {
+    const def = s.llm.providers.find((p) => p.models.includes(s.llm.default_model));
+    $("#proofread").checked = !!def && !def.local;
+    show("#llm-model-wrap", $("#proofread").checked);
+    state.proofreadInited = true;
+  }
 
   $("#st-font").innerHTML = s.fonts.map((f) => `<option value="${esc(f.family)}">${esc(f.family)}</option>`).join("");
   for (const f of s.fonts) {
@@ -98,6 +103,42 @@ async function loadSystem() {
   if (!state.ro) state.ro = { ...s.defaults.render_options };
   syncStyleInputs();
 }
+
+// ---------- Ollama memory: models it keeps loaded, with a stop button to free RAM ----------
+
+const fmtGB = (b) => (b / 1073741824).toFixed(1) + " GB";
+
+async function loadOllama() {
+  let info;
+  try { info = await api("/api/ollama/loaded"); } catch (_) { return; }
+  renderOllama(info);
+}
+
+function renderOllama(info) {
+  const box = $("#ollama-mem");
+  show(box, info.ok && info.models.length > 0);
+  if (!info.ok || !info.models.length) return;
+  box.innerHTML = `<span class="label">🧠 Ollama ใช้แรมอยู่</span>` +
+    info.models.map((m) => `<span class="mem-item">${esc(m.name)} · ${fmtGB(m.size)}${m.size_vram ? ` (VRAM ${fmtGB(m.size_vram)})` : ""}
+      <button class="btn small ghost" data-unload="${esc(m.name)}">⏹ หยุด</button></span>`).join("") +
+    (info.models.length > 1 ? `<button class="btn small ghost" data-unload="">⏹ หยุดทั้งหมด</button>` : "");
+}
+
+$("#ollama-mem").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-unload]");
+  if (!b) return;
+  b.disabled = true;
+  try {
+    const info = await api("/api/ollama/unload", { json: { model: b.dataset.unload || null } });
+    renderOllama(info);
+    toast("คืนแรมแล้ว");
+  } catch (err) {
+    b.disabled = false;
+    toast(err.message, true);
+  }
+});
+
+setInterval(() => { if (!document.hidden) loadOllama(); }, 15000);
 
 // <optgroup> per provider that is ready, default model selected.
 function llmOptions(l) {
@@ -845,6 +886,7 @@ window.addEventListener("beforeunload", () => { if (state.dirty) flushSave(); })
 
 (async function boot() {
   await loadSystem();
+  loadOllama();
   loadRecent();
   const b = location.hash.match(/bench(?:=([a-z0-9]+))?/);
   if (b) {

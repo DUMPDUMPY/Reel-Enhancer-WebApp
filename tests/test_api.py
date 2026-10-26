@@ -87,6 +87,7 @@ def test_system_reports_offline_services(client):
     assert s["whisper"]["ok"] is False and s["llm"]["ok"] is False
     by_key = {p["key"]: p for p in s["llm"]["providers"]}
     assert by_key["zai"]["enabled"] is False and "API key" in by_key["zai"]["status"]
+    assert s["llm"]["providers"][-1]["key"] == "ollama"  # cloud providers listed first
     assert s["render"]["mode"] == "cpu"
     assert any(f["family"] == "Kanit" for f in s["fonts"])
 
@@ -120,3 +121,48 @@ def test_failed_step_is_marked_error(client, tmp_path, monkeypatch):
     states = {n["key"]: n["state"] for n in job["task"]["steps"]}
     assert job["task"]["state"] == "error" and "whisper down" in job["task"]["error"]
     assert states == {"extract": "done", "whisper": "error", "segment": "pending", "proofread": "pending"}
+
+
+def test_transcribe_defaults_to_cloud_stt_when_key_set(client, tmp_path, monkeypatch):
+    from app import config
+    from app.services import stt_cloud
+    monkeypatch.setattr(config, "ELEVENLABS_API_KEY", "k")
+    seen = {}
+    monkeypatch.setattr(stt_cloud, "transcribe", lambda wav, hint="", model=None: seen.setdefault("model", model) and FAKE)
+    s = client.get("/api/system").json()
+    assert s["stt_default"] == "elevenlabs:scribe_v2"
+    src = make_clip(tmp_path / "clip.mp4", size="720x1280")
+    with src.open("rb") as f:
+        jid = client.post("/api/jobs", files={"file": ("clip.mp4", f, "video/mp4")}).json()["id"]
+    client.post(f"/api/jobs/{jid}/transcribe", json={})
+    assert wait(client, jid)["task"]["state"] == "done"
+    assert seen["model"] == "elevenlabs:scribe_v2"
+
+
+def test_ollama_loaded_and_unload(client, monkeypatch):
+    import httpx
+    from app.services import llm
+    loaded = [{"name": "gemma3:4b", "size": 4_000_000_000, "size_vram": 0}]
+    unloaded = []
+
+    def fake_get(url, timeout=None):
+        assert url.endswith("/api/ps")
+        return httpx.Response(200, json={"models": loaded}, request=httpx.Request("GET", url))
+
+    def fake_post(url, json=None, timeout=None):
+        assert json["keep_alive"] == 0
+        unloaded.append(json["model"])
+        loaded[:] = [m for m in loaded if m["name"] != json["model"]]
+        return httpx.Response(200, json={}, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(llm.httpx, "get", fake_get)
+    monkeypatch.setattr(llm.httpx, "post", fake_post)
+    info = client.get("/api/ollama/loaded").json()
+    assert info["ok"] and info["models"][0]["name"] == "gemma3:4b"
+    info = client.post("/api/ollama/unload", json={}).json()  # no model: stop everything
+    assert unloaded == ["gemma3:4b"] and info["models"] == []
+
+
+def test_ollama_offline_unload_is_503(client):
+    assert client.get("/api/ollama/loaded").json()["ok"] is False
+    assert client.post("/api/ollama/unload", json={"model": "x"}).status_code == 503

@@ -6,6 +6,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Cloud-first defaults**: with `ELEVENLABS_API_KEY` set, `elevenlabs:scribe_v2` is the default
+  speech-to-text model (override with `STT_MODEL`); cloud providers are listed before Ollama, and
+  "AI proofreading" is ticked by default when the default proofreading model is a cloud one.
+- **Free Ollama RAM from the UI**: models Ollama keeps loaded are shown under the top bar with their
+  size and a ⏹ stop button (or stop all), which unloads them right away (`/api/ollama/loaded`, `/api/ollama/unload`).
 - **Speech-to-text via ElevenLabs Scribe** (`ELEVENLABS_API_KEY`): `elevenlabs:scribe_v2` appears in
   the model list; word timestamps are converted to the Whisper shape so segmenting, editing and
   rendering are unchanged. Hint words are sent as `keyterms` (`ELEVENLABS_KEYTERMS=0` to disable).

@@ -36,6 +36,9 @@ WHISPER_TIMEOUT = _env_float("WHISPER_TIMEOUT", 600)
 ELEVENLABS_API_KEY = _env("ELEVENLABS_API_KEY", "")
 ELEVENLABS_BASE_URL = _env("ELEVENLABS_BASE_URL", "https://api.elevenlabs.io").rstrip("/")
 ELEVENLABS_STT_MODEL = _env("ELEVENLABS_STT_MODEL", "scribe_v2")
+# Default speech-to-text model, e.g. "elevenlabs:scribe_v2" or "ggml-large-v3-q5_0.bin".
+# Empty: the cloud model when ELEVENLABS_API_KEY is set, else Whisper on the NAS.
+STT_MODEL = _env("STT_MODEL", "")
 # Send hint words as Scribe "keyterms" (better names, +20% cost).
 ELEVENLABS_KEYTERMS = _env("ELEVENLABS_KEYTERMS", "1") not in ("0", "false", "no", "")
 
