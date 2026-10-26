@@ -5,6 +5,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Pick what to make under the file picker: **subtitles** (transcribe + edit), **enhanced clip**, or both.
+  Subtitles-only adds a **⬇️ .srt** download (`GET /api/jobs/{id}/subs.srt`); enhance-only renders without
+  burning subtitles (`burn_subs: false` on render) and keeps any existing cues. The choice is remembered on the phone.
+  The picture options (9:16 fit, sharpen, denoise) moved from the subtitle style box to the render step.
+
 ### Changed
 - **Settings and API keys moved to `.env`** (copy from `.env.example`). `docker-compose.yml` loads it with
   `env_file`, so `git pull` no longer conflicts with local settings and keys are never baked into the image.

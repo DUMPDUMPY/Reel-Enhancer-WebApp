@@ -26,7 +26,11 @@
       <input type="file" id="file" accept="video/*,.mp4,.mov,.m4v,.webm,.mkv">
       <span id="file-label">แตะเพื่อเลือกวิดีโอจากเครื่อง</span>
     </label>
-    <label class="field">
+    <div class="field modes"><span>ต้องการทำอะไร (เลือกได้ 1 หรือทั้งคู่)</span>
+      <label class="switch"><input type="checkbox" id="do-subs" checked><span>📝 ถอดเสียงสร้างซับ + ตรวจและแก้ซับ</span></label>
+      <label class="switch"><input type="checkbox" id="do-enhance" checked><span>✨ สร้างคลิปชัดพิเศษ</span></label>
+    </div>
+    <label class="field" id="hint-wrap">
       <span>ชื่อตัวละคร / คำเฉพาะ (ไม่บังคับ)</span>
       <textarea id="hint" rows="2" placeholder="เช่น กุ๊กไก่, เจ้าเหมียว, หมูจิ๋ว"></textarea>
     </label>
@@ -49,7 +53,7 @@
     <label class="switch"><input type="checkbox" id="vad" checked><span>ตัดช่วงที่มีแต่เพลง/เงียบ (VAD)</span></label>
     <label class="switch"><input type="checkbox" id="proofread"><span>ให้ AI ช่วยตรวจคำผิด</span></label>
     <label class="field hidden" id="llm-model-wrap"><span>โมเดลตรวจคำ (API หรือในเครื่อง)</span><select id="llm-model"></select></label>
-    <button class="btn primary" id="btn-transcribe">1. ถอดเสียงจับเวลา</button>
+    <button class="btn primary" id="btn-transcribe">ถอดเสียงจับเวลา</button>
     <div class="task hidden" id="task-transcribe">
       <div class="task-head"><span class="msg"></span><span class="task-meta"><b class="pct"></b> · <span class="total-time"></span></span></div>
       <div class="progress"><div></div></div>
@@ -82,9 +86,10 @@
     </div>
     <ol class="cues" id="cues"></ol>
     <p class="empty hidden" id="cues-empty">ยังไม่มีซับ กด "+ เพิ่มแคปชัน" เพื่อพิมพ์เองได้</p>
+    <a class="btn hidden" id="btn-srt" href="#">⬇️ ดาวน์โหลดซับ .srt</a>
 
     <details class="style-box" open>
-      <summary>🎨 สไตล์ซับและภาพ</summary>
+      <summary>🎨 สไตล์ซับ</summary>
       <div class="grid2">
         <label class="field"><span>ฟอนต์</span><select id="st-font"></select></label>
         <label class="field"><span>ขนาด <b id="st-size-v"></b></span><input type="range" id="st-size" min="40" max="130" step="2"></label>
@@ -109,21 +114,21 @@
         <label class="field"><span>ระยะจากขอบล่าง <b id="st-margin-v"></b></span><input type="range" id="st-margin" min="80" max="900" step="10"></label>
       </div>
       <label class="switch"><input type="checkbox" id="st-box"><span>พื้นหลังกล่องทึบแทนขอบ</span></label>
-      <div class="grid2">
-        <label class="field"><span>คลิปไม่ใช่ 9:16</span>
-          <select id="ro-fit"><option value="pad">ใส่ขอบดำ (เห็นภาพครบ)</option><option value="crop">ครอปให้เต็มจอ</option></select></label>
-        <label class="field"><span>เพิ่มความคม</span>
-          <select id="ro-sharpen"><option value="off">ปิด</option><option value="light">เบา</option><option value="medium">กลาง</option><option value="strong">แรง</option></select></label>
-        <label class="field"><span>ลดรอยแตก/นอยส์</span>
-          <select id="ro-denoise"><option value="off">ปิด</option><option value="light">เบา</option><option value="medium">กลาง</option></select></label>
-      </div>
     </details>
   </section>
 
   <!-- Step 4: render -->
   <section class="card hidden" id="step-render">
     <h2><span class="num">4</span> สร้างคลิปชัดพิเศษ</h2>
-    <button class="btn primary big" id="btn-render">2. Enhance &amp; ฝังซับ</button>
+    <div class="grid2">
+      <label class="field"><span>คลิปไม่ใช่ 9:16</span>
+        <select id="ro-fit"><option value="pad">ใส่ขอบดำ (เห็นภาพครบ)</option><option value="crop">ครอปให้เต็มจอ</option></select></label>
+      <label class="field"><span>เพิ่มความคม</span>
+        <select id="ro-sharpen"><option value="off">ปิด</option><option value="light">เบา</option><option value="medium">กลาง</option><option value="strong">แรง</option></select></label>
+      <label class="field"><span>ลดรอยแตก/นอยส์</span>
+        <select id="ro-denoise"><option value="off">ปิด</option><option value="light">เบา</option><option value="medium">กลาง</option></select></label>
+    </div>
+    <button class="btn primary big" id="btn-render">Enhance &amp; ฝังซับ</button>
     <div class="task hidden" id="task-render">
       <div class="task-head"><span class="msg"></span><span class="task-meta"><b class="pct"></b> · <span class="total-time"></span></span></div>
       <div class="progress"><div></div></div>

@@ -158,6 +158,38 @@ function llmOptions(l) {
   return html;
 }
 
+// ---------- step 1: what to make ----------
+
+// Subtitles (steps 2–3) and/or an enhanced clip (step 4). Remembered on this phone only.
+const mode = { subs: true, enhance: true };
+try { Object.assign(mode, JSON.parse(localStorage.getItem("mode") || "{}")); } catch (_) {}
+if (!mode.subs && !mode.enhance) mode.subs = mode.enhance = true;
+
+function applyMode() {
+  $("#do-subs").checked = mode.subs;
+  $("#do-enhance").checked = mode.enhance;
+  show("#hint-wrap", mode.subs);
+  const has = !!state.job;
+  show("#step-transcribe", has && mode.subs);
+  show("#step-edit", has && mode.subs);
+  show("#step-render", has && mode.enhance);
+  let n = 1;
+  for (const sec of document.querySelectorAll("#view-edit > section.card")) {
+    if (!sec.classList.contains("hidden")) sec.querySelector(".num").textContent = n++;
+  }
+  $("#btn-render").textContent = mode.subs ? "Enhance & ฝังซับ" : "Enhance คลิป";
+  show("#btn-srt", has && state.cues.length > 0 && !mode.enhance);
+}
+
+for (const [id, key, other] of [["#do-subs", "subs", "enhance"], ["#do-enhance", "enhance", "subs"]]) {
+  $(id).addEventListener("change", (e) => {
+    mode[key] = e.target.checked;
+    if (!mode.subs && !mode.enhance) mode[other] = true;  // at least one
+    try { localStorage.setItem("mode", JSON.stringify(mode)); } catch (_) {}
+    applyMode();
+  });
+}
+
 // ---------- step 1: upload ----------
 
 $("#file").addEventListener("change", () => {
@@ -187,7 +219,7 @@ $("#btn-upload").addEventListener("click", () => {
     state.style = { ...state.sys.defaults.style, ...data.style };
     setJob(data, true);
     loadRecent();
-    $("#step-transcribe").scrollIntoView({ behavior: "smooth" });
+    $(mode.subs ? "#step-transcribe" : "#step-render").scrollIntoView({ behavior: "smooth" });
   };
   xhr.onerror = () => { show(bar, false); $("#btn-upload").disabled = false; toast("อัปโหลดไม่สำเร็จ (เครือข่าย)", true); };
   xhr.open("POST", "/api/jobs");
@@ -280,9 +312,7 @@ function setJob(job, replaceCues) {
     const v = $("#video");
     v.src = `/api/jobs/${job.id}/source`;
   }
-  show("#step-transcribe", true);
-  show("#step-edit", true);
-  show("#step-render", true);
+  applyMode();
   syncStyleInputs();
   renderSuggestions();
   renderTask();
@@ -448,6 +478,7 @@ function renderCues() {
       </div>
     </li>`).join("");
   show("#cues-empty", state.cues.length === 0);
+  show("#btn-srt", state.cues.length > 0 && !mode.enhance);
   updateOverlay();
 }
 
@@ -610,6 +641,17 @@ async function flushSave() {
   }
 }
 
+// Download the saved cues as .srt (subtitles-only flow), after saving pending edits.
+$("#btn-srt").addEventListener("click", async (e) => {
+  e.preventDefault();
+  await flushSave();
+  if (state.dirty) return toast("บันทึกซับไม่สำเร็จ ลองใหม่อีกครั้ง", true);
+  const a = document.createElement("a");
+  a.href = `/api/jobs/${state.job.id}/subs.srt`;
+  a.download = "";
+  a.click();
+});
+
 // ---------- live preview overlay ----------
 
 let stopAt = null;
@@ -718,10 +760,10 @@ $("#hint").addEventListener("input", () => { if (state.job) markDirty(); });
 // ---------- step 4: render ----------
 
 $("#btn-render").addEventListener("click", async () => {
-  if (!state.cues.some((c) => c.text.trim()) && !confirm("ยังไม่มีซับเลย จะเรนเดอร์เฉพาะภาพให้ชัดขึ้นไหม?")) return;
+  if (mode.subs && !state.cues.some((c) => c.text.trim()) && !confirm("ยังไม่มีซับเลย จะเรนเดอร์เฉพาะภาพให้ชัดขึ้นไหม?")) return;
   clearTimeout(state.saveTimer);
   try {
-    const job = await api(`/api/jobs/${state.job.id}/render`, { json: editPayload() });
+    const job = await api(`/api/jobs/${state.job.id}/render`, { json: { ...editPayload(), burn_subs: mode.subs } });
     state.dirty = false;
     $("#save-state").textContent = "บันทึกแล้ว ✓";
     state.lastTaskKey = "";
@@ -937,6 +979,7 @@ window.addEventListener("hashchange", () => {
 window.addEventListener("beforeunload", () => { if (state.dirty) flushSave(); });
 
 (async function boot() {
+  applyMode();
   await loadSystem();
   loadOllama();
   loadRecent();
