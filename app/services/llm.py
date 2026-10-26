@@ -142,6 +142,8 @@ def _list_models(p: Provider) -> dict:
             r.raise_for_status()
             models = [m["name"] for m in r.json().get("models", [])]
         elif p.curated:
+            if not p.default_models:  # e.g. OpenRouter lists hundreds; the user has to pick
+                return {"ok": False, "status": f"ใส่ {p.key.upper()}_MODELS ใน docker-compose.yml ด้วย", "models": []}
             return {"ok": True, "status": "พร้อมใช้", "models": p.default_models}
         else:
             r = httpx.get(f"{p.base_url}/models", headers=_headers(p), timeout=6)

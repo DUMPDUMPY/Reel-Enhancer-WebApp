@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -77,6 +77,7 @@ def system() -> dict:
         "llm": proofreader.status(),
         "render": {"mode": caps.mode, "low_power": caps.low_power, "detail": caps.detail, "checked": caps.checked},
         "fonts": subtitles.list_fonts(),
+        "version": ui_version(),
         "defaults": {
             "style": subtitles.SubtitleStyle().to_dict(),
             "render_options": renderer.RenderOptions().__dict__,
@@ -382,4 +383,22 @@ def start_bench(req: BenchRequest) -> dict:
     return jobs.load(job_id)
 
 
-app.mount("/", StaticFiles(directory=config.APP_DIR / "static", html=True), name="static")
+STATIC = config.APP_DIR / "static"
+
+
+def ui_version() -> str:
+    """Newest change to the UI files; shown in the header and appended to asset URLs."""
+    newest = max(p.stat().st_mtime for p in STATIC.glob("*") if p.is_file())
+    return time.strftime("%Y%m%d-%H%M", time.localtime(newest))
+
+
+@app.get("/", include_in_schema=False)
+def index() -> HTMLResponse:
+    # A phone that cached app.js before no-cache existed would keep it; a versioned URL can't be stale.
+    v = ui_version()
+    html = (STATIC / "index.html").read_text(encoding="utf-8")
+    html = html.replace('href="style.css"', f'href="style.css?v={v}"').replace('src="app.js"', f'src="app.js?v={v}"')
+    return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
+
+
+app.mount("/", StaticFiles(directory=STATIC, html=True), name="static")

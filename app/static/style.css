@@ -234,3 +234,4 @@ input[type=color] { width: 40px; height: 34px; padding: 2px; }
 .history a { color: var(--text); overflow-wrap: anywhere; flex: 1; min-width: 0; }
 .history li { align-items: center; }
 .history span { color: var(--muted); white-space: nowrap; }
+.ver { font-size: 11px; font-weight: 400; color: var(--muted); margin-left: 6px; }

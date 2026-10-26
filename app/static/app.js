@@ -66,6 +66,7 @@ async function loadSystem() {
     return;
   }
   const s = state.sys;
+  $("#ver").textContent = s.version ? "v" + s.version : "";
   const chip = (ok, label) => `<span class="chip ${ok ? "ok" : "bad"}">${label}</span>`;
   const models = s.whisper.models.length ? s.whisper.models : [s.whisper.current];
   // Default from the server (ElevenLabs when its key is set); a stopped Whisper also falls back to the cloud.
@@ -148,6 +149,9 @@ function llmOptions(l) {
   let html = groups.map((p) => `<optgroup label="${esc(p.name)}">` +
     p.models.map((m) => `<option value="${esc(m)}" ${m === l.default_model ? "selected" : ""}>${esc(m)}</option>`).join("") +
     "</optgroup>").join("");
+  // A key without usable models (e.g. OpenRouter without OPENROUTER_MODELS) says why instead of vanishing.
+  html += l.providers.filter((p) => p.enabled && !p.local && !p.models.length)
+    .map((p) => `<option disabled>⚠ ${esc(p.name)}: ${esc(p.status)}</option>`).join("");
   if (l.default_model && !all.includes(l.default_model)) {
     html = `<option value="${esc(l.default_model)}" selected>${esc(l.default_model)}</option>` + html;
   }
