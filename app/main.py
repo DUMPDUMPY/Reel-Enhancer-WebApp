@@ -209,6 +209,12 @@ class TranscribeRequest(BaseModel):
     llm_model: str | None = None
 
 
+@app.post("/api/jobs/{job_id}/cancel")
+def cancel(job_id: str) -> dict:
+    _job_or_404(job_id)
+    return jobs.cancel(job_id)
+
+
 @app.post("/api/jobs/{job_id}/transcribe")
 def transcribe(job_id: str, req: TranscribeRequest) -> dict:
     job = _job_or_404(job_id)

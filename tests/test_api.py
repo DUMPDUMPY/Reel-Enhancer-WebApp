@@ -1,3 +1,4 @@
+import threading
 import time
 
 import pytest
@@ -230,3 +231,68 @@ def test_enhance_only_render_skips_subs_and_srt_download(client, tmp_path):
     nodes = {n["key"]: n for n in job["task"]["steps"]}
     assert nodes["ass"]["state"] == "skipped"
     assert job["cues"][0]["text"] == "สวัสดี"  # kept for later, just not burned in
+
+
+def wait_node(client, job_id, key, timeout=30):
+    end = time.time() + timeout
+    while time.time() < end:
+        steps = client.get(f"/api/jobs/{job_id}").json()["task"]["steps"]
+        if any(s["key"] == key and s["state"] == "running" for s in steps):
+            return
+        time.sleep(0.05)
+    raise AssertionError(f"{key} never started")
+
+
+def wait_idle(timeout=30):
+    end = time.time() + timeout
+    while jobs._cancelled and time.time() < end:  # the worker clears its flag when it returns
+        time.sleep(0.05)
+
+
+def test_stop_transcribe_drops_the_late_whisper_result(client, tmp_path, monkeypatch):
+    release = threading.Event()
+    monkeypatch.setattr(transcriber, "transcribe", lambda *a, **k: (release.wait(10), FAKE)[1])
+    src = make_clip(tmp_path / "clip.mp4", size="720x1280")
+    with src.open("rb") as f:
+        jid = client.post("/api/jobs", files={"file": ("clip.mp4", f, "video/mp4")}).json()["id"]
+    client.post(f"/api/jobs/{jid}/transcribe", json={})
+    wait_node(client, jid, "whisper")
+
+    job = client.post(f"/api/jobs/{jid}/cancel").json()
+    assert job["task"]["state"] == "cancelled"  # the phone is freed at once
+    states = {n["key"]: n["state"] for n in job["task"]["steps"]}
+    assert states == {"extract": "done", "whisper": "cancelled", "segment": "skipped", "proofread": "skipped"}
+
+    release.set()
+    wait_idle()
+    job = client.get(f"/api/jobs/{jid}").json()
+    assert job["task"]["state"] == "cancelled" and not job.get("cues")
+
+    client.post(f"/api/jobs/{jid}/transcribe", json={})  # can start again
+    assert wait(client, jid)["task"]["state"] == "done"
+
+
+def test_stop_render_kills_ffmpeg(client, tmp_path):
+    src = make_clip(tmp_path / "clip.mp4", size="720x1280", seconds=30)
+    with src.open("rb") as f:
+        jid = client.post("/api/jobs", files={"file": ("clip.mp4", f, "video/mp4")}).json()["id"]
+    client.post(f"/api/jobs/{jid}/render", json={"cues": [], "render_options": {"sharpen": "strong"}})
+    wait_node(client, jid, "render", 60)
+    while not jobs._procs:
+        time.sleep(0.05)
+    proc = next(iter(jobs._procs))
+
+    assert client.post(f"/api/jobs/{jid}/cancel").json()["task"]["state"] == "cancelled"
+    proc.wait(10)  # killed, not left encoding in the background
+    wait_idle()
+    job = client.get(f"/api/jobs/{jid}").json()
+    assert job["task"]["state"] == "cancelled" and not job.get("output")
+    assert not (jobs.job_dir(jid) / "output.mp4").exists()
+
+
+def test_stop_when_idle_is_a_no_op(client, tmp_path):
+    src = make_clip(tmp_path / "clip.mp4", size="720x1280")
+    with src.open("rb") as f:
+        jid = client.post("/api/jobs", files={"file": ("clip.mp4", f, "video/mp4")}).json()["id"]
+    assert client.post(f"/api/jobs/{jid}/cancel").status_code == 200
+    assert client.post("/api/jobs/nope/cancel").status_code == 404

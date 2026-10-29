@@ -321,7 +321,7 @@ function setJob(job, replaceCues) {
 
 function taskBox(name) { return name === "render" ? $("#task-render") : $("#task-transcribe"); }
 
-const NODE_ICON = { pending: "", running: "", done: "✓", skipped: "–", warn: "!", error: "✕" };
+const NODE_ICON = { pending: "", running: "", done: "✓", skipped: "–", warn: "!", error: "✕", cancelled: "■" };
 
 // Server clock minus phone clock, so elapsed times are right even if the phone's clock is off.
 let clockSkew = 0;
@@ -353,7 +353,9 @@ function paintTask(box, t) {
   box.querySelector(".progress > div").style.width = pct * 100 + "%";
   box.querySelector(".pct").textContent = Math.round(pct * 100) + "%";
   box.querySelector(".msg").textContent =
-    t.state === "queued" ? "⏳ รอคิว" : t.state === "done" ? "✅ เสร็จแล้ว" : t.state === "error" ? "❌ ไม่สำเร็จ" : t.message;
+    t.state === "queued" ? "⏳ รอคิว" : t.state === "done" ? "✅ เสร็จแล้ว" : t.state === "error" ? "❌ ไม่สำเร็จ" :
+    t.state === "cancelled" ? "⏹ หยุดแล้ว" : t.message;
+  show(box.querySelector(".stop"), t.state === "queued" || t.state === "running");
   const total = box.querySelector(".total-time");
   total.dataset.s = t.started || "";
   total.dataset.e = t.ended || "";
@@ -380,6 +382,22 @@ function paintTask(box, t) {
   show(err, t.state === "error" && !!(t.error || t.message));
   tickTimes();
 }
+
+// Stop the task shown in a box: render/transcribe of the open job, or the open bench run.
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest(".task .stop");
+  if (!b) return;
+  const isBench = !!b.closest("#task-bench");
+  const id = isBench ? bench.run && bench.run.id : state.job && state.job.id;
+  if (!id || !confirm("หยุดงานนี้?")) return;
+  b.disabled = true;
+  try {
+    const job = await api(`/api/jobs/${id}/cancel`, { method: "POST" });
+    if (isBench) setBench(job); else { state.lastTaskKey = ""; setJob(job, false); }
+    toast("หยุดแล้ว");
+  } catch (err) { toast(err.message, true); }
+  b.disabled = false;
+});
 
 // Live elapsed time on every running node, without waiting for the next poll.
 function tickTimes() {

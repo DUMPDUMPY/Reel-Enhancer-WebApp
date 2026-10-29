@@ -19,7 +19,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from app import config
+from app import config, jobs
 
 log = logging.getLogger(__name__)
 
@@ -251,13 +251,19 @@ def _run_ffmpeg(cmd: list[str], duration: float, log_path: Path, on_progress: Ca
     with log_path.open("a") as logf:
         logf.write("\n$ " + " ".join(cmd) + "\n")
         logf.flush()
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=logf, text=True)
-        assert proc.stdout is not None
-        for line in proc.stdout:
-            key, _, val = line.strip().partition("=")
-            if key == "out_time_us" and on_progress and duration > 0 and val.isdigit():
-                on_progress(min(int(val) / 1e6 / duration, 1.0))
-        return proc.wait() == 0
+        proc = jobs.track(subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=logf, text=True))
+        try:
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                key, _, val = line.strip().partition("=")
+                if key == "out_time_us" and on_progress and duration > 0 and val.isdigit():
+                    on_progress(min(int(val) / 1e6 / duration, 1.0))
+            return proc.wait() == 0
+        finally:
+            if proc.poll() is None:  # stopped by the user mid-render
+                proc.kill()
+                proc.wait()
+            jobs.untrack(proc)
 
 
 def render(

@@ -6,6 +6,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **⏹ หยุด** button on running/queued tasks (transcribe, render, bench) via `POST /api/jobs/{id}/cancel`.
+  FFmpeg is killed at once; a whisper or cloud API call already in flight can't be interrupted, so its result is
+  dropped when it returns (the next queued task starts after that).
 - Pick what to make under the file picker: **subtitles** (transcribe + edit), **enhanced clip**, or both.
   Subtitles-only adds a **⬇️ .srt** download (`GET /api/jobs/{id}/subs.srt`); enhance-only renders without
   burning subtitles (`burn_subs: false` on render) and keeps any existing cues. The choice is remembered on the phone.
