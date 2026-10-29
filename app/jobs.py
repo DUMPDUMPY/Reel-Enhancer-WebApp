@@ -7,6 +7,7 @@ NAS are never overloaded; the phone polls GET /api/jobs/{id} for progress.
 import json
 import logging
 import shutil
+import subprocess
 import threading
 import time
 import uuid
@@ -21,6 +22,24 @@ log = logging.getLogger(__name__)
 
 _executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="worker")
 _lock = threading.RLock()
+
+_cancelled: set[str] = set()          # jobs whose task the user stopped
+_procs: set[subprocess.Popen] = set()  # child processes of the running task (single worker)
+
+
+class Cancelled(BaseException):
+    """Raised in the worker when the user stops a task. A BaseException so the
+    `except Exception` fallbacks (warn and carry on) don't swallow it."""
+
+
+def track(proc: subprocess.Popen) -> subprocess.Popen:
+    """Register a long-running child process so cancel() can kill it."""
+    _procs.add(proc)
+    return proc
+
+
+def untrack(proc: subprocess.Popen) -> None:
+    _procs.discard(proc)
 
 
 def new_id() -> str:
@@ -112,8 +131,13 @@ def _recompute(task: dict) -> None:
 
 def step_update(job_id: str, key: str, state: str | None = None, progress: float | None = None,
                 detail: str | None = None, device: str | None = None) -> None:
-    """Update one node: state pending|running|done|skipped|warn|error."""
+    """Update one node: state pending|running|done|skipped|warn|error.
+
+    Also the worker's cancellation point: every task reports progress through here.
+    """
     with _lock:
+        if job_id in _cancelled:
+            raise Cancelled()
         job = load(job_id)
         task = job.get("task") or {}
         for s in task.get("steps") or []:
@@ -161,6 +185,9 @@ def submit(job_id: str, name: str, nodes: list[tuple[str, str, str, float]], fn,
 
     def run():
         with _lock:
+            if job_id in _cancelled:  # stopped while still queued
+                _cancelled.discard(job_id)
+                return
             job = load(job_id)
             job["task"].update(state="running", started=time.time(), message="เริ่มทำงาน")
             save(job)
@@ -173,11 +200,40 @@ def submit(job_id: str, name: str, nodes: list[tuple[str, str, str, float]], fn,
                         s["state"] = "skipped"
                 job["task"].update(state="done", progress=1.0, message="เสร็จแล้ว", ended=time.time())
                 save(job)
+        except Cancelled:
+            log.info("task %s stopped for job %s", name, job_id)
         except Exception as e:  # report any failure to the phone instead of dying silently
             log.exception("task %s failed for job %s", name, job_id)
-            set_task(job_id, name, "error", message="เกิดข้อผิดพลาด", error=str(e)[-1500:])
+            if job_id not in _cancelled:
+                set_task(job_id, name, "error", message="เกิดข้อผิดพลาด", error=str(e)[-1500:])
+        finally:
+            _cancelled.discard(job_id)
 
     _executor.submit(run)
+
+
+def cancel(job_id: str) -> dict:
+    """Stop a queued or running task. FFmpeg is killed at once; a call already waiting on
+    whisper or a cloud API can't be interrupted, so its result is dropped when it returns."""
+    with _lock:
+        job = load(job_id)
+        task = job.get("task") or {}
+        if task.get("state") not in ("queued", "running"):
+            return job
+        running = task["state"] == "running"
+        _cancelled.add(job_id)
+        now = time.time()
+        for s in task.get("steps") or []:
+            if s["state"] == "running":
+                s.update(state="cancelled", ended=now)
+            elif s["state"] == "pending":
+                s["state"] = "skipped"
+        task.update(state="cancelled", message="หยุดแล้ว", ended=now)
+        save(job)
+    if running:
+        for p in list(_procs):
+            p.kill()
+    return job
 
 
 def busy() -> bool:
