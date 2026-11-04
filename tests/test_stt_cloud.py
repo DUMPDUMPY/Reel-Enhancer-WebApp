@@ -218,11 +218,13 @@ def test_google_request_and_parse(monkeypatch, tmp_path):
 
     monkeypatch.setattr(google.httpx, "post", fake_post)
     out = google.transcribe(wav, hint="กุ๊กไก่", model="google:chirp_3")
-    assert ":recognize" in seen["url"] and "/locations/us" in seen["url"]
+    # The implicit recognizer is part of the URL path (body fields: config + content only).
+    assert seen["url"].endswith("/v2/projects/proj/locations/us/recognizers/_:recognize")
     assert seen["headers"] == {"x-goog-api-key": "k"}
-    assert seen["json"]["recognizer"] == "projects/proj/locations/us/recognizers/_"
+    assert "recognizer" not in seen["json"]
     rconf = seen["json"]["config"]
     assert rconf["model"] == "chirp_3" and rconf["language_codes"] == ["th"]
+    assert "recognizer" not in rconf
     assert rconf["features"] == {"enable_word_time_offsets": True}
     texts = [s["text"] for s in out["segments"]]
     assert texts == ["วันนี้กุ๊กไก่แอบหนีเที่ยว", "สวัสดีครับ"]

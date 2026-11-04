@@ -45,8 +45,12 @@ def transcribe(wav_path, hint: str = "", model: str | None = None) -> dict:
         )
     model_id = (model or "").removeprefix(PREFIX) or config.GOOGLE_CLOUD_STT_MODELS[0]
     project, location = config.GOOGLE_CLOUD_PROJECT, config.GOOGLE_CLOUD_LOCATION
+    # The implicit recognizer (name "_") lives in the URL path, not the body.
+    url = (
+        f"https://{location}-speech.googleapis.com/v2/"
+        f"projects/{project}/locations/{location}/recognizers/_:recognize"
+    )
     body = {
-        "recognizer": f"projects/{project}/locations/{location}/recognizers/_",
         "config": {
             "model": model_id,
             "language_codes": ["th"],
@@ -55,7 +59,6 @@ def transcribe(wav_path, hint: str = "", model: str | None = None) -> dict:
         },
         "content": base64.b64encode(wav_path.read_bytes()).decode(),
     }
-    url = f"https://{location}-speech.googleapis.com/v2/projects/{project}/locations/{location}:recognize"
     r = httpx.post(
         url,
         headers={"x-goog-api-key": config.GOOGLE_CLOUD_API_KEY},
