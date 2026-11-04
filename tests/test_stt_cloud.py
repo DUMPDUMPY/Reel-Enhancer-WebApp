@@ -219,7 +219,8 @@ def test_google_request_and_parse(monkeypatch, tmp_path):
     monkeypatch.setattr(google.httpx, "post", fake_post)
     out = google.transcribe(wav, hint="กุ๊กไก่", model="google:chirp_3")
     # The implicit recognizer is part of the URL path (body fields: config + content only).
-    assert seen["url"].endswith("/v2/projects/proj/locations/us/recognizers/_:recognize")    assert seen["headers"] == {"x-goog-api-key": "k"}
+    assert seen["url"].endswith("/v2/projects/proj/locations/us/recognizers/_:recognize")
+    assert seen["headers"] == {"x-goog-api-key": "k"}
     assert "recognizer" not in seen["json"]
     rconf = seen["json"]["config"]
     assert rconf["model"] == "chirp_3" and rconf["language_codes"] == ["th"]
