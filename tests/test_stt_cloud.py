@@ -1,9 +1,27 @@
 import httpx
+import json
+
+import pytest
 
 from app import config
 from app.services import stt_cloud
 from app.services.segmenter import build_cues
 from app.services.stt_cloud import elevenlabs, gemini, google
+
+
+class _FakeHttpx:
+    """Dispatches httpx.post by URL: the OAuth token call vs the STT call."""
+
+    def __init__(self, token_calls, stt_post):
+        self.token_calls = token_calls
+        self.stt_post = stt_post
+
+    def post(self, url, **kw):
+        if "oauth2.googleapis.com" in url:
+            self.token_calls.append((url, kw.get("data")))
+            return httpx.Response(200, json={"access_token": "T", "expires_in": 3600},
+                                  request=httpx.Request("POST", url))
+        return self.stt_post(url, **kw)
 
 # Shape of ElevenLabs Scribe words[] (word / spacing / audio_event).
 SCRIBE = {"language_code": "tha", "text": "...", "words": [
@@ -181,7 +199,13 @@ def test_gemini_quota_error_message(monkeypatch, tmp_path):
         assert "โควตา" in str(e)  # Thai message telling the user what to do
 
 
-# ---------- Google Cloud Speech-to-Text v2 (Chirp) ----------
+# ---------- Google Cloud Speech-to-Text v2 (Chirp, OAuth2 service account) ----------
+
+SA_CREDS = {
+    "client_email": "sa@proj.iam.gserviceaccount.com",
+    "private_key": "-----BEGIN PRIVATE KEY-----\nGGGG\n-----END PRIVATE KEY-----\n",
+    "private_key_id": "kid",
+}
 
 # REST shape of Speech.Recognize (v2): word offsets are {seconds, nanos} maps.
 GOOGLE_RECOGNIZE = {
@@ -204,10 +228,29 @@ GOOGLE_RECOGNIZE = {
 }
 
 
-def test_google_request_and_parse(monkeypatch, tmp_path):
-    monkeypatch.setattr(config, "GOOGLE_CLOUD_API_KEY", "k")
+@pytest.fixture
+def google_auth(monkeypatch, tmp_path):
+    """A service-account file + a working token endpoint."""
+    import jwt as real_jwt
+
+    creds_path = tmp_path / "sa.json"
+    creds_path.write_text(json.dumps(SA_CREDS))
+    monkeypatch.setattr(config, "GOOGLE_CLOUD_CREDENTIALS", str(creds_path))
     monkeypatch.setattr(config, "GOOGLE_CLOUD_PROJECT", "proj")
     monkeypatch.setattr(config, "GOOGLE_CLOUD_LOCATION", "us")
+    monkeypatch.setattr(google, "_token", None)
+    monkeypatch.setattr(real_jwt, "encode", lambda *a, **k: "FAKE.JWT")
+    return creds_path
+
+
+def _token_post(on_calls):
+    def fake(url, data=None, timeout=None):
+        on_calls.append((url, data))
+        return httpx.Response(200, json={"access_token": "T", "expires_in": 3600}, request=httpx.Request("POST", url))
+    return fake
+
+
+def test_google_request_and_parse(monkeypatch, tmp_path, google_auth):
     wav = tmp_path / "a.wav"
     wav.write_bytes(b"RIFF")
     seen = {}
@@ -216,26 +259,28 @@ def test_google_request_and_parse(monkeypatch, tmp_path):
         seen.update(url=url, headers=headers, json=json)
         return httpx.Response(200, json=GOOGLE_RECOGNIZE, request=httpx.Request("POST", url))
 
-    monkeypatch.setattr(google.httpx, "post", fake_post)
+    token_calls = []
+    monkeypatch.setattr("app.services.stt_cloud.google.httpx", _FakeHttpx(token_calls, fake_post))
     out = google.transcribe(wav, hint="กุ๊กไก่", model="google:chirp_3")
     # The implicit recognizer is part of the URL path (body fields: config + content only).
     assert seen["url"].endswith("/v2/projects/proj/locations/us/recognizers/_:recognize")
-    assert seen["headers"] == {"x-goog-api-key": "k"}
+    assert seen["headers"] == {"Authorization": "Bearer T"}  # v2 rejects plain API keys
     assert "recognizer" not in seen["json"]
     rconf = seen["json"]["config"]
     assert rconf["model"] == "chirp_3" and rconf["language_codes"] == ["th"]
     assert "recognizer" not in rconf
     assert rconf["features"] == {"enable_word_time_offsets": True}
     texts = [s["text"] for s in out["segments"]]
-    assert texts == ["วันนี้กุ๊กไก่แอบหนีเที่ยว", "สวัสดีครับ"]
+    assert texts == ["วันนี้กุ๊กไก่แอบหนีเที่ยว", "สวัสดีครับ"]  # long gap made the second segment
     assert out["segments"][-1]["start"] == 5.0
     assert google.models() == ["google:chirp_3"]
+    assert token_calls[0][0] == "https://oauth2.googleapis.com/token"
+    assert token_calls[0][1]["grant_type"].endswith("jwt-bearer")
 
 
-def test_google_disabled_without_project():
-    monkey_d = {"GOOGLE_CLOUD_API_KEY": "k", "GOOGLE_CLOUD_PROJECT": ""}
+def test_google_disabled_without_credentials_path():
+    monkey_d = {"GOOGLE_CLOUD_CREDENTIALS": "", "GOOGLE_CLOUD_PROJECT": "proj"}
     for k, v in monkey_d.items():
         setattr(config, k, v)
     assert google.enabled() is False and google.models() == []
-    for k in monkey_d:
-        setattr(config, k, "")
+    setattr(config, "GOOGLE_CLOUD_PROJECT", "")

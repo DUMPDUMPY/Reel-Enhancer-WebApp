@@ -48,10 +48,13 @@ GEMINI_STT_MODEL = _env("GEMINI_STT_MODEL", "gemini-3.5-transcribe")
 # BCP-47 hints; empty = auto-detect.
 GEMINI_STT_LANGUAGES = _env("GEMINI_STT_LANGUAGES", "th-TH")
 
-# Google Cloud Speech-to-Text v2 (Chirp; "google:…"). Needs a *Cloud* key (AIzaSy…,
-# made in the GCP console with the Cloud Speech-to-Text API enabled) and the project id;
-# an AI Studio key (AQ.…) answers 401. Location must serve the model (us / europe / asia-*).
-GOOGLE_CLOUD_API_KEY = _env("GOOGLE_CLOUD_API_KEY", "")
+# Google Cloud Speech-to-Text v2 (Chirp; "google:…"). The v2 API refuses API keys,
+# so auth is a service-account JSON key file: create one in the GCP console
+# (IAM & Admin → Service Accounts → Keys) with the Cloud Speech-to-Text API enabled,
+# drop the file into ./data and point GOOGLE_CLOUD_CREDENTIALS at it. The project id
+# belongs to. Location must serve the model (chirp_3: us / eu / asia-*).
+GOOGLE_CLOUD_API_KEY = _env("GOOGLE_CLOUD_API_KEY", "")  # useless for v2; kept so old .env still parses
+GOOGLE_CLOUD_CREDENTIALS = _env("GOOGLE_CLOUD_CREDENTIALS", "")
 GOOGLE_CLOUD_PROJECT = _env("GOOGLE_CLOUD_PROJECT", "")
 GOOGLE_CLOUD_LOCATION = _env("GOOGLE_CLOUD_LOCATION", "us")
 GOOGLE_CLOUD_STT_MODELS = [m.strip() for m in _env("GOOGLE_CLOUD_STT_MODELS", "chirp_3").split(",") if m.strip()]

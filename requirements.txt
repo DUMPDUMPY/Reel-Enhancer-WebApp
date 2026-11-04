@@ -5,3 +5,5 @@ httpx==0.28.1
 pysubs2==1.9.0
 pythainlp==5.4.0
 fonttools==4.67.0
+# OAuth2 (RS256 sign) for Google Cloud Speech-to-Text v2 service accounts.
+pyjwt[crypto]==2.12.1
