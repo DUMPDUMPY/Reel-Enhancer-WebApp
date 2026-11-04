@@ -278,12 +278,11 @@ def test_google_request_and_parse(monkeypatch, tmp_path, google_auth):
     assert token_calls[0][1]["grant_type"].endswith("jwt-bearer")
 
 
-def test_google_api_key_auth(monkeypatch, tmp_path):
-    """Cloud AIzaSy key + global host: no OAuth dance involved."""
+def test_google_v1_api_key(monkeypatch, tmp_path):
+    """Cloud AIzaSy key → v1 speech:recognize with latest_long (v2 rejects keys)."""
     monkeypatch.setattr(config, "GOOGLE_CLOUD_API_KEY", "AIzaSyTest")
     monkeypatch.setattr(config, "GOOGLE_CLOUD_CREDENTIALS", "")
     monkeypatch.setattr(config, "GOOGLE_CLOUD_PROJECT", "proj")
-    monkeypatch.setattr(config, "GOOGLE_CLOUD_LOCATION", "global")
     monkeypatch.setattr(google, "_token", None)
     wav = tmp_path / "a.wav"
     wav.write_bytes(b"RIFF")
@@ -291,22 +290,29 @@ def test_google_api_key_auth(monkeypatch, tmp_path):
 
     def fake_post(url, headers=None, json=None, timeout=None):
         seen.update(url=url, headers=headers, json=json)
-        return httpx.Response(200, json={"results": []}, request=httpx.Request("POST", url))
+        return httpx.Response(200, json={
+            "results": [{"alternatives": [{
+                "transcript": "สวัสดี",
+                "words": [{"word": "สวัสดี", "startTime": "1s", "endTime": "1.5s"}],
+            }]}],
+        }, request=httpx.Request("POST", url))
 
     monkeypatch.setattr(google.httpx, "post", fake_post)
-    out = google.transcribe(wav, model="google:chirp_3")
-    assert seen["url"].endswith(
-        "https://speech.googleapis.com/v2/projects/proj/locations/global/recognizers/_:recognize"
-    )
-    assert seen["headers"] == {"x-goog-api-key": "AIzaSyTest"}
-    assert out["segments"] == [] and google.enabled() is True
+    out = google.transcribe(wav, model="google:latest_long")
+    assert seen["url"] == "https://speech.googleapis.com/v1/speech:recognize?key=AIzaSyTest"
+    conf = seen["json"]["config"]
+    assert conf["model"] == "latest_long" and conf["languageCode"] == "th-TH"
+    assert conf["enableWordTimeOffsets"] is True
+    assert "encoding" not in conf  # WAV headers carry it
+    assert [s["text"] for s in out["segments"]] == ["สวัสดี"]  # v1 "1s" strings parse too
+    assert google.models() == ["google:latest_long"]
 
 
 def test_google_401_shows_raw_reason(monkeypatch, tmp_path):
-    monkeypatch.setattr(config, "GOOGLE_CLOUD_API_KEY", "AIzaSyTest")
-    monkeypatch.setattr(config, "GOOGLE_CLOUD_CREDENTIALS", "")
+    monkeypatch.setattr(config, "GOOGLE_CLOUD_API_KEY", "")
+    monkeypatch.setattr(config, "GOOGLE_CLOUD_CREDENTIALS", "/tmp/sa.json")
     monkeypatch.setattr(config, "GOOGLE_CLOUD_PROJECT", "proj")
-    monkeypatch.setattr(config, "GOOGLE_CLOUD_LOCATION", "global")
+    monkeypatch.setattr(google, "_access_token", lambda: "T")
     wav = tmp_path / "a.wav"
     wav.write_bytes(b"RIFF")
 
@@ -319,8 +325,8 @@ def test_google_401_shows_raw_reason(monkeypatch, tmp_path):
         google.transcribe(wav, model="google:chirp_3")
 
 
-def test_google_disabled_without_credentials_path():
-    monkey_d = {"GOOGLE_CLOUD_CREDENTIALS": "", "GOOGLE_CLOUD_PROJECT": "proj"}
+def test_google_disabled_without_any_credentials():
+    monkey_d = {"GOOGLE_CLOUD_API_KEY": "", "GOOGLE_CLOUD_CREDENTIALS": "", "GOOGLE_CLOUD_PROJECT": "proj"}
     for k, v in monkey_d.items():
         setattr(config, k, v)
     assert google.enabled() is False and google.models() == []
