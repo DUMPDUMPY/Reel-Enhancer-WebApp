@@ -85,7 +85,9 @@ def words_from_whisper(result: dict, extra_words: tuple[str, ...] = ()) -> list[
     """Re-tokenize each whisper segment into real Thai words and time each word."""
     words: list[Word] = []
     for seg_index, seg in enumerate(result.get("segments") or []):
-        if _is_hallucination(seg.get("text", ""), phrases=seg.get("source") != "elevenlabs"):
+        # Real cloud speech is never a Whisper outro hallucination, so keep lines
+        # like "อย่าลืมกดติดตาม" (segments from these sources carry "source").
+        if _is_hallucination(seg.get("text", ""), phrases=seg.get("source") is None):
             continue
         tokens = _segment_tokens(seg)
         text = "".join(t for t, _, _ in tokens)

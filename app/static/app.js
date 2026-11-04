@@ -69,11 +69,19 @@ async function loadSystem() {
   $("#ver").textContent = s.version ? "v" + s.version : "";
   const chip = (ok, label) => `<span class="chip ${ok ? "ok" : "bad"}">${label}</span>`;
   const models = s.whisper.models.length ? s.whisper.models : [s.whisper.current];
-  // Default from the server (ElevenLabs when its key is set); a stopped Whisper also falls back to the cloud.
+  // Default from the server (the first cloud provider with a key); a stopped Whisper also falls back to the cloud.
   const sttDefault = !s.whisper.ok && s.stt_cloud.models.length ? s.stt_cloud.models[0] : s.stt_default;
   const opt = (m) => `<option value="${esc(m)}" ${m === sttDefault ? "selected" : ""}>${esc(m)}</option>`;
+  // Cloud models arrive grouped by provider (ElevenLabs first); give each its own optgroup.
+  const cloudLabel = { elevenlabs: "ElevenLabs Scribe", gemini: "Google Gemini", google: "Google Cloud STT" };
+  const cloudGroups = {};
+  for (const m of s.stt_cloud.models) {
+    const p = m.split(":")[0];
+    (cloudGroups[p] = cloudGroups[p] || []).push(m);
+  }
   $("#model").innerHTML =
-    (s.stt_cloud.models.length ? `<optgroup label="Cloud API">` + s.stt_cloud.models.map(opt).join("") + `</optgroup>` : "") +
+    Object.entries(cloudGroups).map(([p, ms]) =>
+      `<optgroup label="${esc(cloudLabel[p] || p)}">` + ms.map(opt).join("") + `</optgroup>`).join("") +
     `<optgroup label="Whisper บน iGPU (NAS)">` + models.map(opt).join("") + `</optgroup>`;
   const cloudStt = s.stt_cloud.models.includes(sttDefault);
   $("#chips").innerHTML =

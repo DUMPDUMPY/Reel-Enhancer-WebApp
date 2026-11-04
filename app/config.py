@@ -32,13 +32,31 @@ MODELS_DIR = Path(_env("MODELS_DIR", "/models"))
 WHISPER_DEFAULT_MODEL = _env("WHISPER_MODEL", "ggml-large-v3-q5_0.bin")
 WHISPER_TIMEOUT = _env_float("WHISPER_TIMEOUT", 600)
 
-# Cloud speech-to-text (optional): with a key, "elevenlabs:scribe_v2" shows up next to the Whisper models.
+# Cloud speech-to-text (optional): with a key, "elevenlabs:scribe_v2" shows up next to the
+# Whisper models and becomes the default.
 ELEVENLABS_API_KEY = _env("ELEVENLABS_API_KEY", "")
 ELEVENLABS_BASE_URL = _env("ELEVENLABS_BASE_URL", "https://api.elevenlabs.io").rstrip("/")
 ELEVENLABS_STT_MODEL = _env("ELEVENLABS_STT_MODEL", "scribe_v2")
 # Send hint words as Scribe "keyterms" (better names, +20% cost).
 ELEVENLABS_KEYTERMS = _env("ELEVENLABS_KEYTERMS", "1") not in ("0", "false", "no", "")
-# Default speech-to-text model, e.g. "elevenlabs:scribe_v2" or a ggml-*.bin name.
+
+# Gemini 3.5 Transcribe ("gemini:…"), same AI Studio key as the proofreading LLM.
+# Word timestamps are required for cue timing and the API rejects them together with
+# a custom vocabulary, so hint words CANNOT bias this model (ElevenLabs takes keyterms).
+GEMINI_STT_BASE_URL = _env("GEMINI_STT_BASE_URL", "https://generativelanguage.googleapis.com/v1beta").rstrip("/")
+GEMINI_STT_MODEL = _env("GEMINI_STT_MODEL", "gemini-3.5-transcribe")
+# BCP-47 hints; empty = auto-detect.
+GEMINI_STT_LANGUAGES = _env("GEMINI_STT_LANGUAGES", "th-TH")
+
+# Google Cloud Speech-to-Text v2 (Chirp; "google:…"). Needs a *Cloud* key (AIzaSy…,
+# made in the GCP console with the Cloud Speech-to-Text API enabled) and the project id;
+# an AI Studio key (AQ.…) answers 401. Location must serve the model (us / europe / asia-*).
+GOOGLE_CLOUD_API_KEY = _env("GOOGLE_CLOUD_API_KEY", "")
+GOOGLE_CLOUD_PROJECT = _env("GOOGLE_CLOUD_PROJECT", "")
+GOOGLE_CLOUD_LOCATION = _env("GOOGLE_CLOUD_LOCATION", "us")
+GOOGLE_CLOUD_STT_MODELS = [m.strip() for m in _env("GOOGLE_CLOUD_STT_MODELS", "chirp_3").split(",") if m.strip()]
+# Default speech-to-text model, e.g. "elevenlabs:scribe_v2", "gemini:gemini-3.5-transcribe",
+# "google:chirp_3" or a ggml-*.bin name.
 # Empty: ElevenLabs when its key is set, else the Whisper server's model.
 TRANSCRIBE_MODEL = _env("TRANSCRIBE_MODEL", "")
 

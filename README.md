@@ -102,6 +102,20 @@ curl http://<IP-NAS>:8000/api/system
 - ชื่อในช่อง hint จะถูกส่งเป็น `keyterms` เพื่อให้สะกดชื่อถูก (ElevenLabs คิดเพิ่ม 20%) ปิดได้ด้วย `ELEVENLABS_KEYTERMS=0`
 - ถ้าไม่ได้ใส่ key ทุกอย่างจะทำงานบน iGPU เหมือนเดิม
 
+## ถอดเสียงด้วย Google (Gemini / Cloud Speech-to-Text)
+
+มีผู้ให้บริการถอดเสียงบนคลาวด์จาก Google อีก 2 ทาง เลือกใน dropdown เดียวกัน (จัดกลุ่มตามผู้ให้บริการ):
+
+| ทาง | ใช้ key อะไร | จุดเด่น | ข้อควรรู้ |
+|---|---|---|---|
+| `gemini:gemini-3.5-transcribe` | `GEMINI_API_KEY` (ตัวเดียวกับช่องตรวจคำ ไม่ต้องใหม่) | ถอดแม่น + จับเวลาระดับคำ | ฟรี 10 ครั้ง/วันต่อโมเดล, 3 ครั้ง/นาที · **ใช้คำใน hint ไม่ได้** (API ห้ามใช้ custom vocabulary คู่กับ timestamps ระดับคำ) |
+| `google:chirp_3` | `GOOGLE_CLOUD_API_KEY` + `GOOGLE_CLOUD_PROJECT` | ฟรี 60 นาที/เดือน, ถอดเสียงเพลง/เสียงดังได้ดี | ต้องเป็น**คีย์ Cloud แบบ AIzaSy** (สร้างใน GCP console + เปิดใช้ Cloud Speech-to-Text API) คีย์ AI Studio แบบ `AQ.` จะเจอ 401 · รองรับคลิปสั้น (~1 นาที) เพราะเป็นการเรียกแบบ synchronous |
+
+- จัดท่อนซับเหมือน ElevenLabs/Whisper ทุกอย่าง (เวลาระดับคำ → ตัดท่อนตามคำไทยด้วย PyThaiNLP)
+- กำหนดค่าเริ่มต้นด้วย `TRANSCRIBE_MODEL` เช่น `gemini:gemini-3.5-transcribe` หรือ `google:chirp_3`
+  (ว่าง = ElevenLabs ถ้ามี key ตามด้วย Gemini, Google Cloud แล้วตามด้วย Whisper บน iGPU)
+- เจอ 429 (เกินโควตา) หน้าเว็บจะบอกเป็นภาษาไทยว่าต้องรอหรือเปลี่ยนโมเดล
+
 ## ตรวจคำผิดด้วย API key (ไม่ต้องรันโมเดลบน NAS)
 
 ใส่ key ใน `.env` แล้ว `docker compose up -d --force-recreate` โมเดลของเจ้านั้นจะขึ้นใน dropdown ทั้งหน้าทำคลิปและหน้าทดสอบโมเดล
@@ -126,7 +140,7 @@ curl http://<IP-NAS>:8000/api/system
 |---|---|---|
 | `WHISPER_MODEL` | `ggml-large-v3-q5_0.bin` | โมเดลถอดเสียง (ต้องตั้งให้ตรงกันทั้ง 2 service) |
 | `ZAI_API_KEY`, `TYPHOON_API_KEY`, ... | – | API key สำหรับตรวจคำผิดผ่าน cloud (ดูหัวข้อด้านบน) |
-| `TRANSCRIBE_MODEL` | (ว่าง) | โมเดลถอดเสียงเริ่มต้น ว่างไว้ = `elevenlabs:scribe_v2` ถ้ามี key ไม่งั้นใช้ Whisper |
+| `TRANSCRIBE_MODEL` | (ว่าง) | โมเดลถอดเสียงเริ่มต้น ว่างไว้ = ตัวแรกที่มี key (ElevenLabs → Gemini → Google Cloud) ไม่งั้นใช้ Whisper |
 | `PROOFREAD_MODEL` | (ว่าง) | โมเดลตรวจคำเริ่มต้น เช่น `zai:glm-5.3` ถ้าเป็นโมเดล cloud ช่อง "ให้ AI ช่วยตรวจคำผิด" จะติ๊กไว้ให้ |
 | `OLLAMA_HOST` / `OLLAMA_MODEL` | host.docker.internal / `gemma3:4b` | ปล่อย `OLLAMA_HOST` ว่างเพื่อซ่อน Ollama |
 | `PROOFREAD_BATCH` / `OLLAMA_TIMEOUT` | `10` / `300` | ส่งซับให้ AI ตรวจทีละกี่ท่อน และรอแต่ละชุดได้นานสุดกี่วินาที (ชุดที่ล้มเหลวจะข้ามไป ชุดอื่นยังใช้ได้) |
