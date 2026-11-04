@@ -46,8 +46,10 @@ def transcribe(wav_path, hint: str = "", model: str | None = None) -> dict:
     model_id = (model or "").removeprefix(PREFIX) or config.GOOGLE_CLOUD_STT_MODELS[0]
     project, location = config.GOOGLE_CLOUD_PROJECT, config.GOOGLE_CLOUD_LOCATION
     # The implicit recognizer (name "_") lives in the URL path, not the body.
+    # "global" uses the plain host; every other location prefixes its own host.
+    host = "speech.googleapis.com" if location == "global" else f"{location}-speech.googleapis.com"
     url = (
-        f"https://{location}-speech.googleapis.com/v2/"
+        f"https://{host}/v2/"
         f"projects/{project}/locations/{location}/recognizers/_:recognize"
     )
     body = {
