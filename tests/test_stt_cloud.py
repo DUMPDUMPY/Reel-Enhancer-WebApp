@@ -302,6 +302,23 @@ def test_google_api_key_auth(monkeypatch, tmp_path):
     assert out["segments"] == [] and google.enabled() is True
 
 
+def test_google_401_shows_raw_reason(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "GOOGLE_CLOUD_API_KEY", "AIzaSyTest")
+    monkeypatch.setattr(config, "GOOGLE_CLOUD_CREDENTIALS", "")
+    monkeypatch.setattr(config, "GOOGLE_CLOUD_PROJECT", "proj")
+    monkeypatch.setattr(config, "GOOGLE_CLOUD_LOCATION", "global")
+    wav = tmp_path / "a.wav"
+    wav.write_bytes(b"RIFF")
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        return httpx.Response(401, json={"error": {"message": "API keys are not supported by this API"}},
+                              request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(google.httpx, "post", fake_post)
+    with pytest.raises(RuntimeError, match="API keys are not supported by this API"):
+        google.transcribe(wav, model="google:chirp_3")
+
+
 def test_google_disabled_without_credentials_path():
     monkey_d = {"GOOGLE_CLOUD_CREDENTIALS": "", "GOOGLE_CLOUD_PROJECT": "proj"}
     for k, v in monkey_d.items():

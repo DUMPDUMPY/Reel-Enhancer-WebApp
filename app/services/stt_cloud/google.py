@@ -132,7 +132,7 @@ def transcribe(wav_path, hint: str = "", model: str | None = None) -> dict:
             f"GOOGLE_CLOUD_LOCATION=global (host speech.googleapis.com), ผูก billing "
             "กับ project (จำเป็นแม้โควตาฟรี), เปิดใช้ Cloud Speech-to-Text API หรือ "
             "เปลี่ยนไปใช้ service account (GOOGLE_CLOUD_CREDENTIALS) — คีย์ AI Studio "
-            "แบบ AQ. ใช้กับ Cloud API ไม่ได้เสมอ"
+            f"แบบ AQ. ใช้กับ Cloud API ไม่ได้เสมอ · ข้อความจาก Google: {r.text[:300]}"
         )
     if r.status_code == 404:
         raise RuntimeError(
