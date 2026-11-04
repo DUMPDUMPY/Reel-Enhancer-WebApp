@@ -293,7 +293,7 @@ def test_google_v1_api_key(monkeypatch, tmp_path):
         return httpx.Response(200, json={
             "results": [{"alternatives": [{
                 "transcript": "สวัสดี",
-                "words": [{"word": "สวัสดี", "startTime": "1s", "endTime": "1.5s"}],
+                "words": [{"word": "▁สวัสดี", "startTime": "1s", "endTime": "1.5s"}],
             }]}],
         }, request=httpx.Request("POST", url))
 

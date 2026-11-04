@@ -110,7 +110,8 @@ def _parse_results(data: dict) -> tuple[list[dict], list[str]]:
         chunks.append(alt.get("transcript", ""))
         for w in alt.get("words") or []:
             start, end = _word_time(w, "startOffset"), _word_time(w, "endOffset")
-            text = w.get("word") or w.get("text") or ""
+            # v1 latest_long leaks sentencepiece "▁" markers into word strings.
+            text = (w.get("word") or w.get("text") or "").replace("▁", "")
             if text and start is not None and end is not None:
                 words.append({"word": text, "start": start, "end": end})
     return words, chunks
