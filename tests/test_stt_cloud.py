@@ -267,7 +267,7 @@ def test_google_request_and_parse(monkeypatch, tmp_path, google_auth):
     assert seen["headers"] == {"Authorization": "Bearer T"}  # v2 rejects plain API keys
     assert "recognizer" not in seen["json"]
     rconf = seen["json"]["config"]
-    assert rconf["model"] == "chirp_3" and rconf["language_codes"] == ["th"]
+    assert rconf["model"] == "chirp_3" and rconf["language_codes"] == ["th-TH"]
     assert "recognizer" not in rconf
     assert rconf["features"] == {"enable_word_time_offsets": True}
     texts = [s["text"] for s in out["segments"]]
@@ -276,6 +276,30 @@ def test_google_request_and_parse(monkeypatch, tmp_path, google_auth):
     assert google.models() == ["google:chirp_3"]
     assert token_calls[0][0] == "https://oauth2.googleapis.com/token"
     assert token_calls[0][1]["grant_type"].endswith("jwt-bearer")
+
+
+def test_google_api_key_auth(monkeypatch, tmp_path):
+    """Cloud AIzaSy key + global host: no OAuth dance involved."""
+    monkeypatch.setattr(config, "GOOGLE_CLOUD_API_KEY", "AIzaSyTest")
+    monkeypatch.setattr(config, "GOOGLE_CLOUD_CREDENTIALS", "")
+    monkeypatch.setattr(config, "GOOGLE_CLOUD_PROJECT", "proj")
+    monkeypatch.setattr(config, "GOOGLE_CLOUD_LOCATION", "global")
+    monkeypatch.setattr(google, "_token", None)
+    wav = tmp_path / "a.wav"
+    wav.write_bytes(b"RIFF")
+    seen = {}
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        seen.update(url=url, headers=headers, json=json)
+        return httpx.Response(200, json={"results": []}, request=httpx.Request("POST", url))
+
+    monkeypatch.setattr(google.httpx, "post", fake_post)
+    out = google.transcribe(wav, model="google:chirp_3")
+    assert seen["url"].endswith(
+        "https://speech.googleapis.com/v2/projects/proj/locations/global/recognizers/_:recognize"
+    )
+    assert seen["headers"] == {"x-goog-api-key": "AIzaSyTest"}
+    assert out["segments"] == [] and google.enabled() is True
 
 
 def test_google_disabled_without_credentials_path():

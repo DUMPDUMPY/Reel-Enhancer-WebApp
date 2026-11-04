@@ -12,11 +12,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
     timestamps are sent for cue timing; because the API forbids combining them with a custom
     vocabulary, hint words cannot bias this model. Free tier is 10 requests/day per model and
     3 requests/minute — a 429 shows a Thai message saying so.
-  - `google:chirp_3` (Google Cloud Speech-to-Text v2) — the v2 API refuses API keys, so auth is a
-    service account: create one in the GCP console, drop its JSON key into `./data` and set
-    `GOOGLE_CLOUD_CREDENTIALS` to `/data/<file>.json` plus `GOOGLE_CLOUD_PROJECT`. Free tier
-    60 min/month; the sync Recognize call suits the short clips this app makes. Chirp models live
-    in `us`/`eu`/`asia-*` locations (`GOOGLE_CLOUD_LOCATION`, default `us`).
+  - `google:chirp_3` (Google Cloud Speech-to-Text v2) — two auth options, per the API docs: an
+    AIzaSy Cloud key with `GOOGLE_CLOUD_LOCATION=global` (project must have billing bound even
+    for the free tier — regional hosts have been seen to reject keys), or a service-account JSON
+    key (`GOOGLE_CLOUD_CREDENTIALS` = `/data/<file>.json`) which always works. Free tier
+    60 min/month; the sync Recognize call suits the short clips this app makes.
   - The model dropdown groups cloud models by provider (ElevenLabs / Gemini / Google Cloud) above
     the Whisper models on the NAS. `TRANSCRIBE_MODEL` picks the default; empty still means
     ElevenLabs when its key is set, else Whisper.

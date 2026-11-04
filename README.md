@@ -109,7 +109,7 @@ curl http://<IP-NAS>:8000/api/system
 | ทาง | ใช้ key อะไร | จุดเด่น | ข้อควรรู้ |
 |---|---|---|---|
 | `gemini:gemini-3.5-transcribe` | `GEMINI_API_KEY` (ตัวเดียวกับช่องตรวจคำ ไม่ต้องใหม่) | ถอดแม่น + จับเวลาระดับคำ | ฟรี 10 ครั้ง/วันต่อโมเดล, 3 ครั้ง/นาที · **ใช้คำใน hint ไม่ได้** (API ห้ามใช้ custom vocabulary คู่กับ timestamps ระดับคำ) |
-| `google:chirp_3` | `GOOGLE_CLOUD_CREDENTIALS` (ไฟล์ JSON ของ service account) + `GOOGLE_CLOUD_PROJECT` | ฟรี 60 นาที/เดือน, ถอดเสียงเพลง/เสียงดังได้ดี | **v2 API ไม่รับ API key** (จะตอบ 401) ต้องใช้ service account JSON วางใน `./data` · chirp_3 เปิดให้ location `us`/`eu`/`asia-*` (404 ถ้า location ผิด) · รองรับคลิปสั้น (~1 นาที) เพราะเป็นการเรียกแบบ synchronous |
+| `google:chirp_3` | `GOOGLE_CLOUD_API_KEY` (คีย์ AIzaSy) **หรือ** `GOOGLE_CLOUD_CREDENTIALS` (ไฟล์ JSON ของ service account) + `GOOGLE_CLOUD_PROJECT` | ฟรี 60 นาที/เดือน, แม่นสุด + auto language detect | ต้อง**ผูก billing** กับ project แม้ใช้โควตาฟรี · คีย์ AIzaSy ใช้กับ `GOOGLE_CLOUD_LOCATION=global`; regional host (`us-…`) อาจตอบ 401 · คีย์ AI Studio แบบ `AQ.` ใช้ไม่ได้ (401 เสมอ) · คลิปสั้น ≤1 นาที (สาย sync) |
 
 - จัดท่อนซับเหมือน ElevenLabs/Whisper ทุกอย่าง (เวลาระดับคำ → ตัดท่อนตามคำไทยด้วย PyThaiNLP)
 - กำหนดค่าเริ่มต้นด้วย `TRANSCRIBE_MODEL` เช่น `gemini:gemini-3.5-transcribe` หรือ `google:chirp_3`

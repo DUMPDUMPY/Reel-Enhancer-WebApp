@@ -1,13 +1,18 @@
 """Cloud speech-to-text provider: Google Cloud Speech-to-Text v2 (Chirp).
 
-The Speech-to-Text v2 API rejects API keys ("API keys are not supported by
-this API", seen live), so auth is a service account: point GOOGLE_CLOUD_CREDENTIALS
-at the JSON key file (drop it into /data on the NAS). Requests are version 2 with
-the implicit recognizer, whose word times feed the same segmenter as every other
-provider. Chirp 3 answers 404 outside the locations that serve it (us / eu /
-asia-* per the supported-languages table). Free tier: 60 minutes/month.
-The synchronous Recognize call takes inline audio, good for this app's short
-clips (its content limit is 1 minute) — no GCS bucket needed.
+Two auth options, in order of setup effort (per the API docs):
+- API key (`AIzaSy…` made in the GCP console): works on the global host
+  speech.googleapis.com. The project needs billing enabled even for the free
+  tier; the regional hosts (us-speech.googleapis.com …) have been seen live to
+  answer 401 "API keys are not supported by this API", so prefer global.
+- Service account JSON key via GOOGLE_CLOUD_CREDENTIALS — always accepted;
+  minted into a Bearer access token (JWT-bearer) and cached ~1 h.
+
+An AI Studio key (`AQ.…`) only works on generativelanguage.googleapis.com — it
+answers 401 on every Cloud API. Chirp 3 answers 404 outside the locations that
+serve it (us / eu / asia-* / global); free tier is 60 minutes/month and
+timestamped files are limited to 20 min. The synchronous Recognize call takes
+inline audio (≤1 min), good for this app's short clips.
 """
 
 import base64
@@ -29,7 +34,7 @@ _lock = threading.Lock()
 
 
 def enabled() -> bool:
-    return bool(config.GOOGLE_CLOUD_CREDENTIALS and config.GOOGLE_CLOUD_PROJECT)
+    return bool(config.GOOGLE_CLOUD_PROJECT and (config.GOOGLE_CLOUD_CREDENTIALS or config.GOOGLE_CLOUD_API_KEY))
 
 
 def models() -> list[str]:
@@ -40,11 +45,15 @@ def is_cloud(model: str | None) -> bool:
     return bool(model) and model.startswith(PREFIX)
 
 
-def _access_token() -> str:
-    """Mint an OAuth2 access token from the service-account JSON (JWT-bearer).
+def _auth_headers() -> dict[str, str]:
+    """Service account first (always accepted); fall back to the API key."""
+    if config.GOOGLE_CLOUD_CREDENTIALS:
+        return {"Authorization": f"Bearer {_access_token()}"}
+    return {"x-goog-api-key": config.GOOGLE_CLOUD_API_KEY}
 
-    A raw API key is refused by v2 with 401 UNAUTHENTICATED; only a principal
-    (service account / user credentials) can call Recognize."""
+
+def _access_token() -> str:
+    """Mint an OAuth2 access token from the service-account JSON (JWT-bearer)."""
     global _token
     with _lock:
         if _token and _token[1] > time.time() + 60:
@@ -95,8 +104,8 @@ def _word_time(w: dict, key: str) -> float | None:
 def transcribe(wav_path, hint: str = "", model: str | None = None) -> dict:
     if not enabled():
         raise RuntimeError(
-            "ยังไม่ตั้ง GOOGLE_CLOUD_CREDENTIALS / GOOGLE_CLOUD_PROJECT "
-            "(ต้องเป็นไฟล์ JSON ของ service account — v2 ไม่รับ API key)"
+            "ยังไม่ตั้ง GOOGLE_CLOUD_API_KEY (คีย์ AIzaSy + ผูก billing) หรือ "
+            "GOOGLE_CLOUD_CREDENTIALS (ไฟล์ JSON ของ service account) พร้อม GOOGLE_CLOUD_PROJECT"
         )
     model_id = (model or "").removeprefix(PREFIX) or config.GOOGLE_CLOUD_STT_MODELS[0]
     project, location = config.GOOGLE_CLOUD_PROJECT, config.GOOGLE_CLOUD_LOCATION
@@ -110,22 +119,25 @@ def transcribe(wav_path, hint: str = "", model: str | None = None) -> dict:
     body = {
         "config": {
             "model": model_id,
-            "language_codes": ["th"],
+            "language_codes": ["th-TH"],
             "auto_decoding_config": {},  # WAV/FLAC/MP3/OGG are detected for us
             "features": {"enable_word_time_offsets": True},
         },
         "content": base64.b64encode(wav_path.read_bytes()).decode(),
     }
-    r = httpx.post(
-        url,
-        headers={"Authorization": f"Bearer {_access_token()}"},
-        json=body,
-        timeout=config.WHISPER_TIMEOUT,
-    )
+    r = httpx.post(url, headers=_auth_headers(), json=body, timeout=config.WHISPER_TIMEOUT)
+    if r.status_code == 401:
+        raise RuntimeError(
+            "Google Cloud STT ตอบ 401 — ถ้าใช้ GOOGLE_CLOUD_API_KEY ลอง: ตั้ง "
+            f"GOOGLE_CLOUD_LOCATION=global (host speech.googleapis.com), ผูก billing "
+            "กับ project (จำเป็นแม้โควตาฟรี), เปิดใช้ Cloud Speech-to-Text API หรือ "
+            "เปลี่ยนไปใช้ service account (GOOGLE_CLOUD_CREDENTIALS) — คีย์ AI Studio "
+            "แบบ AQ. ใช้กับ Cloud API ไม่ได้เสมอ"
+        )
     if r.status_code == 404:
         raise RuntimeError(
             f"Google Cloud STT ตอบ 404 — โมเดล {model_id} อาจไม่มีใน location '{location}' "
-            f"(chirp_3 อยู่ใน us / eu / asia-*) หรือ Cloud Speech-to-Text API ยังไม่ได้เปิดใช้"
+            f"(chirp_3 อยู่ใน global / us / eu / asia-*) หรือ Cloud Speech-to-Text API ยังไม่ได้เปิดใช้"
         )
     if r.status_code >= 400:
         raise RuntimeError(f"Google Cloud STT ตอบ {r.status_code}: {r.text[:300]}")
@@ -142,4 +154,4 @@ def transcribe(wav_path, hint: str = "", model: str | None = None) -> dict:
             if text and start is not None and end is not None:
                 words.append({"word": text, "start": start, "end": end})
     segments = _common.words_to_segments(words, _SOURCE, gap_split=1.0)
-    return {"segments": segments, "text": "".join(chunks), "language": "th"}
+    return {"segments": segments, "text": "".join(chunks), "language": "th-TH"}
